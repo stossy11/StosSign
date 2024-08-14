@@ -374,6 +374,10 @@ std::string CertificatesContent(ALTCertificate *altCertificate)
                         // even if downloaded app doesn't have them originally.
                         continue;
                     }
+                  
+                  if ([entitlement isEqualToString:ALTEntitlementIncreasedMemoryLimit]) {
+                      continue;
+                  }
                  
                      // Original app does not have this entitlement, so don't give it to resigned app.
                      filteredEntitlements[entitlement] = nil;
