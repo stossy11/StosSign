@@ -1,0 +1,3 @@
+[submodule "Sources/ldid-core"]
+	path = Sources/ldid-core
+	url = https://github.com/rileytestut/ldid.git

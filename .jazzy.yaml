@@ -1,0 +1,28 @@
+# ---- About ----
+module: AltSign
+module_version: 1.0.0
+author: SideStore Team
+readme: README.md
+copyright: 'See [license](https://github.com/SideStore/AltSign/blob/develop/LICENSE) for more details.'
+
+# ---- URLs ----
+author_url: https://sidestore.io
+dash_url: https://sidestore.io/docsets/AltSign.xml
+github_url: https://github.com/SideStore/AltSign/
+github_file_prefix: https://github.com/SideStore/AltSign/tree/1.0.0/
+
+# ---- Sources ----
+source_directory: Sources
+# documentation: .build/x86_64-apple-macosx/debug/AltSign.docc
+
+# ---- Generation ----
+clean: true
+output: docs
+min_acl: public
+hide_documentation_coverage: false
+skip_undocumented: false
+objc: false
+swift_version: 5.1.0
+
+# ---- Formatting ----
+theme: fullwidth

@@ -1,0 +1,25 @@
+# https://docs.codecov.io/docs/codecov-yaml
+
+codecov:
+  require_ci_to_pass: true
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+  ignore:
+  - Sources/CCoreCrypto
+  - Sources/CoreCrypto
+  - Sources/ldid
+  - Sources/ldid-core
+  - Sources/minizip
+  status:
+    patch:
+      default:
+        if_no_uploads: error
+    changes: true
+    project:
+      default:
+        target: auto
+        if_no_uploads: error
+comment: false

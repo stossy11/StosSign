@@ -1,0 +1,19 @@
+name: Build
+
+on:
+  pull_request:
+
+jobs:
+  test:
+    name: Build
+    runs-on: macos-latest
+    steps:
+
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - name: Build
+      run: |
+        swift build
