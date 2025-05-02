@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import ZSign
 #if os(iOS)
 import UIKit
 #endif
