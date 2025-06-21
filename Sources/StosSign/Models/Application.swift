@@ -6,7 +6,7 @@
 //
 
 import Foundation
-#if os(iOS)
+#if canImport(UIKit)
 import UIKit
 #endif
 
@@ -119,7 +119,7 @@ public class Application: NSObject {
         )
     }
 
-    
+#if canImport(UIKit)
     public var icon: UIImage? {
         guard let iconName = self.iconName else {
             return nil
@@ -127,6 +127,7 @@ public class Application: NSObject {
         
         return UIImage(named: iconName, in: self.bundle, compatibleWith: nil)
     }
+#endif
     
     // MARK: - Private Properties
     

@@ -9,7 +9,7 @@
 import Foundation
 import CommonCrypto
 import CoreCrypto
-#if os(macOS) || os(iOS)
+#if canImport(UIKit)
 import UIKit
 #endif
 
@@ -39,7 +39,7 @@ public func cchmac_ctx_size(_ stateSize: Int, _ blockSize: Int) -> Int {
 
 public func cchmac_di_size(_ digestInfo: UnsafePointer<ccdigest_info>) -> Int {
     let baseSize = cchmac_ctx_size(digestInfo.pointee.state_size, digestInfo.pointee.block_size)
-    #if os(iOS) || os(macOS)
+    #if canImport(UIKit)
     let systemVersion = UIDevice.current.systemVersion
     let majorVersion = Int(systemVersion.components(separatedBy: ".").first ?? "0") ?? 0
     
@@ -52,7 +52,11 @@ public func cchmac_di_size(_ digestInfo: UnsafePointer<ccdigest_info>) -> Int {
         return baseSize
     }
     #else
+    #if os(iOS) || os(macOS)
+    return baseSize * 2
+    #else
     return baseSize
+    #endif
     #endif
 }
 
