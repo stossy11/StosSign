@@ -7,9 +7,12 @@
 
 import Foundation
 import StosOpenSSL
-import ZsignSwift
+import ZSign
 import Zip
 
+typealias EVP_PKEY = OpaquePointer
+typealias X509 = OpaquePointer
+typealias BIO = OpaquePointer
 
 let AppleRootCertificateData = """
 -----BEGIN CERTIFICATE-----
@@ -99,33 +102,67 @@ tGwPDBUf
 """
 
 
-func swCertificatesContent(certificate: Certificate) -> Data? {
-    let p12Data = certificate.p12Data ?? Data()
+func CertificatesContent(certificate: Certificate) -> Data {
+    let certificateP12Data = certificate.p12Data
     
-    var returnedData: Data?
+    let inputP12Buffer = BIO_new(BIO_s_mem())
+    BIO_write(inputP12Buffer, certificateP12Data.bytes, Int32(certificateP12Data!.count))
     
-    let rootCertCString = strdup(AppleRootCertificateData)
-    let wwdrCertCString = strdup(AppleWWDRCertificateData)
-    let legacyWwdrCertCString = strdup(LegacyAppleWWDRCertificateData)
+    let inputP12 = d2i_PKCS12_bio(inputP12Buffer, nil)
     
-    let result = CertificatesContent(
-        p12Data.withUnsafeBytes { $0.baseAddress!.assumingMemoryBound(to: UInt8.self) },
-        p12Data.count,
-        rootCertCString,
-        wwdrCertCString,
-        legacyWwdrCertCString
-    )
-
-    if let pointer = result.bytes, result.length > 0 {
-        let data = Data(bytes: pointer, count: result.length)
-        returnedData = data
-        free(UnsafeMutableRawPointer(mutating: pointer))
+    // Extract key + certificate from .p12
+    var key: EVP_PKEY?
+    var certificate: X509?
+    PKCS12_parse(inputP12, "", &key, &certificate, nil)
+    
+    // Prepare certificate chain of trust
+    let certificates = sk_X509_new(nil)
+    
+    let rootCertificateBuffer = BIO_new_mem_buf(AppleRootCertificateData, Int32(strlen(AppleRootCertificateData)))
+    var wwdrCertificateBuffer: BIO?
+    
+    let issuerHash = X509_issuer_name_hash(certificate)
+    if issuerHash == 0x817d2f7a {
+        // Use legacy WWDR certificate
+        wwdrCertificateBuffer = BIO_new_mem_buf(LegacyAppleWWDRCertificateData, Int32(strlen(LegacyAppleWWDRCertificateData)))
+    } else {
+        // Use latest WWDR certificate
+        wwdrCertificateBuffer = BIO_new_mem_buf(AppleWWDRCertificateData, Int32(strlen(AppleWWDRCertificateData)))
     }
-
-    free(rootCertCString)
-    free(wwdrCertCString)
-    free(legacyWwdrCertCString)
-    return returnedData
+    
+    let rootCertificate = PEM_read_bio_X509(rootCertificateBuffer, nil, nil, nil)
+    if rootCertificate != nil {
+        sk_X509_push(certificates, rootCertificate)
+    }
+    
+    let wwdrCertificate = PEM_read_bio_X509(wwdrCertificateBuffer, nil, nil, nil)
+    if wwdrCertificate != nil {
+        sk_X509_push(certificates, wwdrCertificate)
+    }
+    
+    // Create new .p12 in memory with private key and certificate chain
+    var emptyCString = strdup("")
+    defer { free(emptyCString) }
+    let outputP12 = PKCS12_create(&emptyCString, &emptyCString, key, certificate, certificates, 0, 0, 0, 0, 0)
+    
+    let outputP12Buffer = BIO_new(BIO_s_mem())
+    i2d_PKCS12_bio(outputP12Buffer, outputP12)
+    
+    var buffer: UnsafePointer<UInt8>? = nil
+    let size = BIO_get_mem_data_bridge(outputP12Buffer, &buffer)
+    
+    let p12Data = Data(bytes: buffer!, count: Int(size))
+    
+    PKCS12_free(inputP12)
+    PKCS12_free(outputP12)
+    
+    BIO_free(wwdrCertificateBuffer)
+    BIO_free(rootCertificateBuffer)
+    
+    BIO_free(inputP12Buffer)
+    BIO_free(outputP12Buffer)
+    
+    return Data()
 }
 
 
@@ -181,7 +218,15 @@ public class Signer {
             var entitlementsByFileURL = [URL: String]()
             
             let profileForApp: (Application) -> ProvisioningProfile? = { app in
-                profiles.first { $0.bundleIdentifier == app.bundleIdentifier }
+                profiles.first { 
+                    var cool = $0.bundleIdentifier == app.bundleIdentifier
+                    if !cool {
+                        cool = "com." + ($0.bundleIdentifier ?? "") == app.bundleIdentifier
+                    }
+                    print("Checking profile for app: \($0.bundleIdentifier ?? "unknown") with app: \(app.bundleIdentifier ?? "unknown"), result: \(cool)")
+                    
+                    return cool
+                }
             }
             
             let prepareApp: (Application) -> Error? = { app in
@@ -204,22 +249,21 @@ public class Signer {
             }
             
             do {
-                let key = swCertificatesContent(certificate: self.certificate) ?? Data()
+                let key = CertificatesContent(certificate: self.certificate)
                 let p12FilePath = URL.temporaryDirectory.appendingPathComponent("certificate.p12")
                 try key.write(to: p12FilePath)
                 
                 guard let profile = profileForApp(application),
-                      let provisioningPath = try? saveProvisioningProfile(profile) else {
+                      let provisioningPath = try? saveProvisioningProfile(profile),
+                      let privateKey = self.certificate.privateKey else {
                     finish(false, NSError(domain: SignErrorDomain, code: ErrorUnknown))
                     return
                 }
                 
-                // let privateKeyPath = URL.temporaryDirectory.appendingPathComponent("\(self.certificate.identifier ?? "").pem")
-                // try privateKey.write(to: privateKeyPath)
+                let privateKeyPath = URL.temporaryDirectory.appendingPathComponent("\(self.certificate.identifier ?? "").pem")
+                try privateKey.write(to: privateKeyPath)
                 
-                
-                let result = Zsign.sign(appPath: appBundleURL.path, provisionPath: provisioningPath, p12Path: p12FilePath.path)
-                
+                let result = zsign(appBundleURL.path, p12FilePath.path, privateKeyPath.path, provisioningPath, "", application.bundleIdentifier, application.name)
                 
                 DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + 0.5) {
                     if let ipaURL = ipaURL {

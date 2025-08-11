@@ -131,16 +131,17 @@ public class AppleAPI {
             
             guard let deviceDictionary = response["device"] as? [String: Any] else {
                 if error == nil {
-                    if let result = response["resultCode"] {
-                        let resultCode = (result as? NSNumber)?.intValue ?? 0
+                    if let result = response["resultCode"] as? Int {
                         
-                        if resultCode == 0 {
+                        if result == 0 {
                             APIerror = .unknown
+                        } else if result == 35 {
+                            APIerror = .deviceAlreadyRegistered
                         } else {
                             let errorDescription = response["userString"] as? String ?? response["resultString"] as? String
-                            let localizedDescription = String(format: "%@ (%@)", errorDescription ?? "", "\(resultCode)")
+                            let localizedDescription = String(format: "%@ (%@)", errorDescription ?? "", "\(result)")
                             
-                            APIerror = .customError(code: resultCode, message: localizedDescription)
+                            APIerror = .customError(code: result, message: localizedDescription)
                         }
                     } else {
                         APIerror = .badServerResponse
@@ -187,37 +188,84 @@ public class AppleAPI {
         
         sendServicesRequest(originalRequest: request, additionalParameters: ["filter[certificateType]": "IOS_DEVELOPMENT"], session: session, team: team) { (responseDictionary, error) in
             guard let data = responseDictionary?["data"] as? [[String: Any]] else {
+                print("Failed to parse certificates response: \(String(describing: responseDictionary))")
                 completion(nil, error)
                 return
             }
+
+            print("Certificates Response: \(data)")
             
             let decoder = JSONDecoder()
             let certificates = data.compactMap { dict -> Certificate? in
-                Certificate(responseDictionary: dict)
+                return Certificate(responseDictionary: dict)
             }
             
             completion(certificates, nil)
         }
     }
+
+    func convertDatesToStrings(in dict: [String: Any]) -> [String: Any] {
+        var newDict = [String: Any]()
+        for (key, value) in dict {
+            if let date = value as? Date {
+                let formatter = ISO8601DateFormatter()
+                newDict[key] = formatter.string(from: date)
+            } else if let subDict = value as? [String: Any] {
+                newDict[key] = convertDatesToStrings(in: subDict)
+            } else if let array = value as? [Any] {
+                newDict[key] = array.map { element -> Any in
+                    if let elementDict = element as? [String: Any] {
+                        return convertDatesToStrings(in: elementDict)
+                    } else if let date = element as? Date {
+                        let formatter = ISO8601DateFormatter()
+                        return formatter.string(from: date)
+                    }
+                    return element
+                }
+            } else {
+                newDict[key] = value
+            }
+        }
+        return newDict
+    }
     
     public func addCertificateWithMachineName(machineName: String, team: Team, session: AppleAPISession, completion: @escaping (Certificate?, Error?) -> Void) {
-        guard let certificateRequest = CertificateRequest.generate(), let csr = certificateRequest.csr else {
+        guard let certificateRequest = CertificateRequest.generate(), let csr = certificateRequest.csr, let csrString = String(data: csr, encoding: .utf8) else {
+            print("Failed to generate CSR")
             completion(nil, AppleAPIError.invalidCertificateRequest)
             return
         }
-        
+
+
+        print("PKey: \(String(data: certificateRequest.privateKey ?? Data(), encoding: .utf8) ?? "nil")")
+
         let url = qhURL.appendingPathComponent("ios/submitDevelopmentCSR.action")
         
         sendRequestWithURL(requestURL: url,
                            additionalParameters: [
-                            "csrContent": csr.base64EncodedString(),
+                            "csrContent": csrString,
                             "machineId": UUID().uuidString,
                             "machineName": machineName
                            ], session: session, team: team) { (responseDictionary, error) in
                                guard let certRequestDict = responseDictionary?["certRequest"] as? [String: Any] else {
+                                   print("Failed to parse certificate request response: \(String(describing: responseDictionary))")
+
+                                    if let resultCode = responseDictionary?["resultCode"] as? Int {
+                                       switch resultCode {
+                                       case 7460:
+                                           completion(nil, AppleAPIError.customError(code: 7460, message: "You already have a current iOS Development certificate or a pending certificate request."))
+                                       default:
+                                           completion(nil, error ?? AppleAPIError.badServerResponse)
+                                       }
+
+                                       return
+                                    }
+
                                    completion(nil, error)
                                    return
                                }
+
+                               print("Certificate Request Response: \(certRequestDict)")
                                
                                let certificate = Certificate(responseDictionary: certRequestDict)!
                                
@@ -274,6 +322,7 @@ public class AppleAPI {
         
         sendRequestWithURL(requestURL: url, additionalParameters: parameters, session: session, team: team) { response, error in
             guard let response else {
+                print("Error fetching App ID: \(error?.localizedDescription ?? "Unknown error")")
                 completionHandler(nil, error)
                 return
             }
@@ -294,6 +343,8 @@ public class AppleAPI {
                         completionHandler(nil, AppleAPIError.bundleIdentifierUnavailable)
                     case 9412:
                         completionHandler(nil, AppleAPIError.invalidBundleIdentifier)
+                    case 9400:
+                        completionHandler(nil, AppleAPIError.bundleIdentifierUnavailable)
                     default:
                         completionHandler(nil, error)
                     }
@@ -303,6 +354,7 @@ public class AppleAPI {
                 completionHandler(nil, error ?? AppleAPIError.badServerResponse)
                 return
             }
+            
             
             guard let appID = AppID(responseDictionary: dictionary) else {
                 completionHandler(nil, AppleAPIError.badServerResponse)
@@ -528,9 +580,8 @@ public class AppleAPI {
             }
             
             do {
-                let data = try JSONSerialization.data(withJSONObject: dictionary)
-                let decoder = JSONDecoder()
-                let provisioningProfile = try decoder.decode(ProvisioningProfile.self, from: data)
+                print("Provisioning Profile Response: \(dictionary)")
+                let provisioningProfile = ProvisioningProfile(dictionary as! [String: Any])
                 completionHandler(provisioningProfile, nil)
             } catch {
                 completionHandler(nil, error)

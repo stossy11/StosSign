@@ -25,18 +25,6 @@
 extern "C" {
 #endif
 
-typedef struct {
-    unsigned char* bytes;
-    size_t length;
-} CertificateOutput;
-
-CertificateOutput CertificatesContent(
-    const unsigned char* p12Data,
-    size_t p12Length,
-    const char* appleRootCertData,
-    const char* appleWWDRCertData,
-    const char* legacyAppleWWDRCertData);
-
 static inline long BIO_get_mem_data_bridge(BIO *bio, const unsigned char **pp) {
     return BIO_get_mem_data(bio, pp);
 }

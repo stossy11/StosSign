@@ -55,59 +55,63 @@ bool parse_p12_data(const unsigned char *p12Data, int p12DataLength,
 }
 
 
-bool parse_certificate_data(const unsigned char *pemData, int pemDataLength,
-                          char **outName, size_t *outNameLength,
-                          char **outSerialNumber, size_t *outSerialNumberLength) {
+bool parse_certificate_data(const unsigned char *derData, int derDataLength,
+                            char **outName, size_t *outNameLength,
+                            char **outSerialNumber, size_t *outSerialNumberLength) {
     BIO *certificateBuffer = NULL;
     X509 *certificate = NULL;
     BIGNUM *number = NULL;
     char *cSerialNumber = NULL;
     bool result = false;
-
-    certificateBuffer = BIO_new_mem_buf((const void *)pemData, pemDataLength);
+    
+    // Create BIO from DER data
+    certificateBuffer = BIO_new_mem_buf((const void *)derData, derDataLength);
     if (!certificateBuffer) {
         goto cleanup;
     }
     
-    certificate = NULL;
-    PEM_read_bio_X509(certificateBuffer, &certificate, 0, 0);
+    // Parse DER format (not PEM!)
+    certificate = d2i_X509_bio(certificateBuffer, NULL);
     if (certificate == NULL) {
         goto cleanup;
     }
-
+    
+    // Extract common name
     X509_NAME *subject = X509_get_subject_name(certificate);
     int index = X509_NAME_get_index_by_NID(subject, NID_commonName, -1);
     if (index == -1) {
         goto cleanup;
     }
-
+    
     X509_NAME_ENTRY *nameEntry = X509_NAME_get_entry(subject, index);
     ASN1_STRING *nameData = X509_NAME_ENTRY_get_data(nameEntry);
     const unsigned char *cName = ASN1_STRING_get0_data(nameData);
     if (cName == NULL) {
         goto cleanup;
     }
-
+    
+    // Extract serial number
     ASN1_INTEGER *serialNumberData = X509_get_serialNumber(certificate);
     number = ASN1_INTEGER_to_BN(serialNumberData, NULL);
     if (number == NULL) {
         goto cleanup;
     }
-
+    
     cSerialNumber = BN_bn2hex(number);
     if (cSerialNumber == NULL) {
         goto cleanup;
     }
-
+    
+    // Copy name
     *outNameLength = strlen((const char *)cName) + 1;
     *outName = (char *)malloc(*outNameLength);
     strcpy(*outName, (const char *)cName);
-
+    
+    // Copy serial number (skip leading zeros)
     int i = 0;
     while (cSerialNumber[i] == '0' && cSerialNumber[i+1] != '\0') {
         i++;
     }
-    
     *outSerialNumberLength = strlen(&cSerialNumber[i]) + 1;
     *outSerialNumber = (char *)malloc(*outSerialNumberLength);
     strcpy(*outSerialNumber, &cSerialNumber[i]);
@@ -226,8 +230,8 @@ int generate_certificate_request(unsigned char **outputRequest, long *requestLen
     const char *country = "US";
     const char *state = "CA";
     const char *city = "Los Angeles";
-    const char *organization = "AltSign";
-    const char *commonName = "AltSign";
+    const char *organization = "StosSign";
+    const char *commonName = "StosSign";
 
     X509_NAME *subject = X509_REQ_get_subject_name(request);
     if (subject == NULL) {
@@ -289,68 +293,4 @@ cleanup:
     BIO_free_all(privateKey);
 
     return success;
-}
-
-
-CertificateOutput CertificatesContent(
-    const unsigned char* p12Data,
-    size_t p12Length,
-    const char* appleRootCertData,
-    const char* appleWWDRCertData,
-    const char* legacyAppleWWDRCertData) {
-    CertificateOutput output = { NULL, 0 };
-
-    BIO* inputP12Buffer = BIO_new(BIO_s_mem());
-    BIO_write(inputP12Buffer, p12Data, (int)p12Length);
-
-    PKCS12* inputP12 = d2i_PKCS12_bio(inputP12Buffer, NULL);
-    if (!inputP12) goto cleanup;
-
-    EVP_PKEY* key = NULL;
-    X509* certificate = NULL;
-    if (!PKCS12_parse(inputP12, "", &key, &certificate, NULL)) goto cleanup;
-
-    STACK_OF(X509)* certificates = sk_X509_new_null();
-
-    BIO* rootCertificateBuffer = BIO_new_mem_buf((void*)appleRootCertData, (int)strlen(appleRootCertData));
-    BIO* wwdrCertificateBuffer = NULL;
-
-    unsigned long issuerHash = X509_issuer_name_hash(certificate);
-    if (issuerHash == 0x817d2f7a) {
-        wwdrCertificateBuffer = BIO_new_mem_buf((void*)legacyAppleWWDRCertData, (int)strlen(legacyAppleWWDRCertData));
-    } else {
-        wwdrCertificateBuffer = BIO_new_mem_buf((void*)appleWWDRCertData, (int)strlen(appleWWDRCertData));
-    }
-
-    X509* rootCertificate = PEM_read_bio_X509(rootCertificateBuffer, NULL, NULL, NULL);
-    if (rootCertificate) sk_X509_push(certificates, rootCertificate);
-
-    X509* wwdrCertificate = PEM_read_bio_X509(wwdrCertificateBuffer, NULL, NULL, NULL);
-    if (wwdrCertificate) sk_X509_push(certificates, wwdrCertificate);
-
-    PKCS12* outputP12 = PKCS12_create("", "", key, certificate, certificates, 0, 0, 0, 0, 0);
-    if (!outputP12) goto cleanup;
-
-    BIO* outputP12Buffer = BIO_new(BIO_s_mem());
-    i2d_PKCS12_bio(outputP12Buffer, outputP12);
-
-    BUF_MEM* bptr;
-    BIO_get_mem_ptr(outputP12Buffer, &bptr);
-    output.bytes = (unsigned char*)malloc(bptr->length);
-    memcpy(output.bytes, bptr->data, bptr->length);
-    output.length = bptr->length;
-
-    BIO_free(outputP12Buffer);
-    PKCS12_free(outputP12);
-
-cleanup:
-    if (inputP12) PKCS12_free(inputP12);
-    if (key) EVP_PKEY_free(key);
-    if (certificate) X509_free(certificate);
-    if (certificates) sk_X509_pop_free(certificates, X509_free);
-    if (rootCertificateBuffer) BIO_free(rootCertificateBuffer);
-    if (wwdrCertificateBuffer) BIO_free(wwdrCertificateBuffer);
-    if (inputP12Buffer) BIO_free(inputP12Buffer);
-
-    return output;
 }

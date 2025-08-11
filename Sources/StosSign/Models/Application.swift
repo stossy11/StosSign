@@ -6,7 +6,8 @@
 //
 
 import Foundation
-#if canImport(UIKit)
+import ZSign
+#if os(iOS)
 import UIKit
 #endif
 
@@ -119,7 +120,9 @@ public class Application: NSObject {
         )
     }
 
-#if canImport(UIKit)
+    
+    #if os(iOS)
+    /// The application icon, if available
     public var icon: UIImage? {
         guard let iconName = self.iconName else {
             return nil
@@ -127,7 +130,7 @@ public class Application: NSObject {
         
         return UIImage(named: iconName, in: self.bundle, compatibleWith: nil)
     }
-#endif
+    #endif
     
     // MARK: - Private Properties
     

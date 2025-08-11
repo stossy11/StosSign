@@ -38,6 +38,35 @@ public struct ProvisioningProfile: Codable {
         case certificates = "DeveloperCertificates"
     }
 
+    public init(_ dict: [String: Any]) {
+        identifier = dict[CodingKeys.identifier.rawValue] as? String ?? ""
+        data = dict[CodingKeys.data.rawValue] as? Data ?? Data()
+
+        name = dict[CodingKeys.name.rawValue] as? String ?? ""
+        let uuidString = dict[CodingKeys.uuid.rawValue] as? String ?? ""
+        uuid = UUID(uuidString: uuidString) ?? UUID()
+
+        teamIdentifier = (dict[CodingKeys.teamIdentifier.rawValue] as? [String])?.first ?? ""
+        teamName = dict[CodingKeys.teamName.rawValue] as? String ?? ""
+        creationDate = dict[CodingKeys.creationDate.rawValue] as? Date ?? Date()
+        expirationDate = dict[CodingKeys.expirationDate.rawValue] as? Date ?? Date()
+
+        entitlements = (dict[CodingKeys.entitlements.rawValue] as? [String: Any] ?? [:])
+            .mapValues { AnyCodable($0) }
+
+        deviceIDs = dict[CodingKeys.deviceIDs.rawValue] as? [String] ?? []
+        isFreeProvisioningProfile = dict[CodingKeys.isFreeProvisioningProfile.rawValue] as? Bool ?? false
+
+        if let appIdDict = dict["appId"] as? [String: Any],
+        let identifierStr = appIdDict["identifier"] as? String {
+            bundleIdentifier = identifierStr
+        } else {
+            bundleIdentifier = nil
+        }
+
+        certificates = dict[CodingKeys.certificates.rawValue] as? [Data] ?? []
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
