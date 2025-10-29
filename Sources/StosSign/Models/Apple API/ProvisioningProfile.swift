@@ -30,7 +30,7 @@ public struct ProvisioningProfile: Codable {
         case teamIdentifier = "TeamIdentifier"
         case teamName = "TeamName"
         case creationDate = "CreationDate"
-        case expirationDate = "ExpirationDate"
+        case expirationDate = "dateExpire"
         case entitlements = "Entitlements"
         case deviceIDs = "ProvisionedDevices"
         case isFreeProvisioningProfile = "LocalProvision"

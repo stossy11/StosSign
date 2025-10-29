@@ -149,9 +149,14 @@ func CertificatesContent(certificate: Certificate) -> Data {
     i2d_PKCS12_bio(outputP12Buffer, outputP12)
     
     var buffer: UnsafePointer<UInt8>? = nil
-    let size = BIO_get_mem_data_bridge(outputP12Buffer, &buffer)
-    
-    let p12Data = Data(bytes: buffer!, count: Int(size))
+    let size = BIO_get_mem_ptr_bridge(outputP12Buffer, &buffer)
+
+    if size > 0 && buffer != nil {
+        let p12Data = Data(bytes: buffer!, count: Int(size))
+    } else {
+        // Handle error
+        let p12Data = Data()
+    }
     
     PKCS12_free(inputP12)
     PKCS12_free(outputP12)
@@ -218,14 +223,14 @@ public class Signer {
             var entitlementsByFileURL = [URL: String]()
             
             let profileForApp: (Application) -> ProvisioningProfile? = { app in
-                profiles.first { 
-                    var cool = $0.bundleIdentifier == app.bundleIdentifier
-                    if !cool {
-                        cool = "com." + ($0.bundleIdentifier ?? "") == app.bundleIdentifier
-                    }
-                    print("Checking profile for app: \($0.bundleIdentifier ?? "unknown") with app: \(app.bundleIdentifier ?? "unknown"), result: \(cool)")
-                    
-                    return cool
+                profiles.first { profile in
+                    let profileBID = profile.bundleIdentifier
+                    let appBID = app.bundleIdentifier
+
+                    let profilePrefix = profileBID?.split(separator: ".").dropLast().joined(separator: ".")
+                    let appPrefix = appBID.split(separator: ".").dropLast().joined(separator: ".")
+
+                    return profilePrefix == appPrefix
                 }
             }
             
@@ -263,7 +268,27 @@ public class Signer {
                 let privateKeyPath = URL.temporaryDirectory.appendingPathComponent("\(self.certificate.identifier ?? "").pem")
                 try privateKey.write(to: privateKeyPath)
                 
+                for appExtension in application.appExtensions {
+                    guard let extensionProfile = profileForApp(appExtension),
+                          let extensionProvisioningPath = try? saveProvisioningProfile(extensionProfile) else {
+                        finish(false, NSError(domain: SignErrorDomain, code: ErrorMissingProvisioningProfile))
+                        return
+                    }
+                    
+                    let extensionResult = zsign(appExtension.fileURL.path, p12FilePath.path, privateKeyPath.path, extensionProvisioningPath, "", appExtension.bundleIdentifier, appExtension.name)
+                    
+                    if extensionResult != 0 {
+                        finish(false, NSError(domain: SignErrorDomain, code: ErrorUnknown, userInfo: [NSLocalizedFailureReasonErrorKey: "Failed to sign app extension: \(appExtension.name)"]))
+                        return
+                    }
+                }
+                
                 let result = zsign(appBundleURL.path, p12FilePath.path, privateKeyPath.path, provisioningPath, "", application.bundleIdentifier, application.name)
+                
+                if result != 0 {
+                    finish(false, NSError(domain: SignErrorDomain, code: ErrorUnknown, userInfo: [NSLocalizedFailureReasonErrorKey: "Failed to sign main application"]))
+                    return
+                }
                 
                 DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + 0.5) {
                     if let ipaURL = ipaURL {
@@ -288,7 +313,6 @@ public class Signer {
         return progress
     }
 }
-
 
 func saveProvisioningProfile(_ profile: ProvisioningProfile) throws -> String {
     let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(profile.uuid).mobileprovision")

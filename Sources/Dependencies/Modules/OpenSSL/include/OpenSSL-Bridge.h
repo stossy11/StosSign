@@ -25,8 +25,8 @@
 extern "C" {
 #endif
 
-static inline long BIO_get_mem_data_bridge(BIO *bio, const unsigned char **pp) {
-    return BIO_get_mem_data(bio, pp);
+static inline long BIO_get_mem_ptr_bridge(BIO *bio, const unsigned char **pp) {
+    return BIO_get_mem_ptr(bio, pp); //BIO_get_mem_data(bio, pp);
 }
 
 bool parse_p12_data(const unsigned char *p12Data, int p12DataLength,

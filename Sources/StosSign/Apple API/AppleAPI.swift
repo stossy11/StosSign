@@ -1328,28 +1328,28 @@ public enum SignError: Int, Error {
 }
 
 public enum AppleAPIError: Error {
-    case unknown
-    case invalidParameters
-    case badServerResponse
-    case incorrectCredentials
-    case appSpecificPasswordRequired
-    case noTeams
-    case invalidDeviceID
-    case deviceAlreadyRegistered
-    case invalidCertificateRequest
-    case certificateDoesNotExist
-    case invalidAppIDName
-    case invalidBundleIdentifier
-    case bundleIdentifierUnavailable
-    case appIDDoesNotExist
-    case maximumAppIDLimitReached
-    case invalidAppGroup
-    case appGroupDoesNotExist
-    case invalidProvisioningProfileIdentifier
-    case provisioningProfileDoesNotExist
-    case requiresTwoFactorAuthentication
-    case incorrectVerificationCode
-    case authenticationHandshakeFailed
-    case invalidAnisetteData
+    case unknown // 0
+    case invalidParameters // 1
+    case badServerResponse // 2
+    case incorrectCredentials // 3
+    case appSpecificPasswordRequired // 4
+    case noTeams // 5
+    case invalidDeviceID // 6
+    case deviceAlreadyRegistered // 7
+    case invalidCertificateRequest // 8
+    case certificateDoesNotExist // 9
+    case invalidAppIDName // 10
+    case invalidBundleIdentifier // 11
+    case bundleIdentifierUnavailable // 12
+    case appIDDoesNotExist // 13
+    case maximumAppIDLimitReached // 14
+    case invalidAppGroup // 15
+    case appGroupDoesNotExist // 16
+    case invalidProvisioningProfileIdentifier // 17
+    case provisioningProfileDoesNotExist // 18
+    case requiresTwoFactorAuthentication // 19
+    case incorrectVerificationCode // 20
+    case authenticationHandshakeFailed // 21
+    case invalidAnisetteData // 22
     case customError(code: Int, message: String)
 }
