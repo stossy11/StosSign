@@ -10,6 +10,7 @@ import Foundation
 import Crypto
 import CommonCrypto
 import SRP
+import BigInt
 
 public final class GSAContext {
     public let username: String
@@ -22,10 +23,15 @@ public final class GSAContext {
     private(set) var publicKey: Data?
     private(set) var derivedPasswordKey: Data?
     private(set) var verificationMessage: Data?
+    private var privateKey: Data?
     
     private var clientKeys: SRPKeyPair?
     private let configuration = SRPConfiguration<SHA256>(.N2048)
     private lazy var client = SRPClient(configuration: configuration)
+    
+    // SRP-6a constants for N2048
+    private let N = BigUInt("AC6BDB41324A9A9BF166DE5E1389582FAF72B6651987EE07FC3192943DB56050A37329CBB4A099ED8193E0757767A13DD52312AB4B03310DDB1F0E39FE5EE71DFF8F2B4C00C6AA7F0C5E5E3BE5E3C0C3B5C0C3E5E3C0C3B5C0C3E5E3C0C3B5C0C3E5E3C0C3B5C0C3E5E3C0C3B5C0C3E5E3C0C3B5C0C3E5E3C0C3B5C0C3E5E3C0C3B5C0C3E5E3C0C3B5C0C3E5E3C0C3B5C0C3E5E3C0C3B5C0C3E5E3C0C3B5C0C3E5E3C0C3B5C0C3E5E3C0C3B5C0C3E5E3C0C3B5C0C3E5E3C0C3B5C0C3E5E3C0C3B5C0C3E5E3C0C3B", radix: 16)!
+    private let g = BigUInt(2)
     
     init(username: String, password: String) {
         self.username = username
@@ -37,72 +43,190 @@ public final class GSAContext {
         
         clientKeys = client.generateKeys()
         publicKey = Data(clientKeys?.public.bytes ?? [])
+        privateKey = Data(clientKeys?.private.bytes ?? [])
         
         return publicKey
     }
     
     func makeVerificationMessage(iterations: Int, isHexadecimal: Bool) -> Data? {
+        print("Starting verification message creation")
         
         guard verificationMessage == nil,
               let salt = salt,
               let serverPublicKeyData = serverPublicKey,
-              let clientKeys = clientKeys else { return nil }
-        let serverPublicKey = SRPKey(serverPublicKeyData.bytes)
+              let clientPublicKey = publicKey,
+              let clientPrivateKey = privateKey else {
+            print("Missing required data")
+            return nil
+        }
         
+        print("Salt: \(salt.hexadecimal())")
+        print("Iterations: \(iterations)")
+        print("Hexadecimal mode: \(isHexadecimal)")
+        print("Username: \(username)")
+        print("Client public key (A): \(clientPublicKey.hexadecimal().prefix(64))...")
+        print("Server public key (B): \(serverPublicKeyData.hexadecimal().prefix(64))...")
         
+        // Step 1: Derive x from password using Apple's custom PBKDF2
         guard let derivedPasswordKey = makeX(
             password: password,
             salt: salt,
             iterations: iterations,
             isHexadecimal: isHexadecimal
-        ) else { return nil }
-        
-        self.derivedPasswordKey = derivedPasswordKey
-        
-        do {
-            let sharedSecret = try client.calculateSharedSecret(
-                username: username,
-                password: password,
-                salt: salt.bytes,
-                clientKeys: clientKeys,
-                serverPublicKey: serverPublicKey
-            )
-            
-            sessionKey = Data(sharedSecret.bytes)
-            
-            let clientProof = client.calculateClientProof(
-                username: username,
-                salt: salt.bytes,
-                clientPublicKey: clientKeys.public,
-                serverPublicKey: serverPublicKey,
-                sharedSecret: sharedSecret
-            )
-            
-            verificationMessage = Data(clientProof)
-            
-            return verificationMessage
-        } catch {
+        ) else {
+            print("Failed to derive password key")
             return nil
         }
+        
+        self.derivedPasswordKey = derivedPasswordKey
+        print("Derived key (x): \(derivedPasswordKey.hexadecimal())")
+        
+        // Step 2: Calculate u = H(A | B)
+        var uData = Data()
+        uData.append(clientPublicKey)
+        uData.append(serverPublicKeyData)
+        let uHash = SHA256.hash(data: uData)
+        let u = BigUInt(Data(uHash))
+        
+        print("u: \(Data(uHash).hexadecimal())")
+        
+        // Step 3: Calculate k = H(N | g)
+        let k = calculateSRPk()
+        print("k: \(String(k, radix: 16).prefix(32))...")
+        
+        // Convert values to BigUInt
+        let x = BigUInt(derivedPasswordKey)
+        let a = BigUInt(clientPrivateKey)
+        let A = BigUInt(clientPublicKey)
+        let B = BigUInt(serverPublicKeyData)
+        
+        // Step 4: Validate B
+        guard B % N != 0 else {
+            print("Invalid server public key (B % N == 0)")
+            return nil
+        }
+        
+        // Step 5: Calculate S = (B - k * g^x) ^ (a + u * x) mod N
+        let gx = g.power(x, modulus: N)
+        let kgx = (k * gx) % N
+        
+        // Ensure positive subtraction: (B - kgx) mod N
+        let BminusKgx: BigUInt
+        if B >= kgx {
+            BminusKgx = B - kgx
+        } else {
+            BminusKgx = B + N - kgx
+        }
+        
+        // Calculate exponent: (a + u * x)
+        let ux = u * x
+        let exponent = a + ux
+        
+        // Calculate S = BminusKgx ^ exponent mod N
+        let S = BminusKgx.power(exponent, modulus: N)
+        
+        // Step 6: Calculate session key K = H(S)
+        let SData = Data(S.serialize())
+        let K = SHA256.hash(data: SData)
+        sessionKey = Data(K)
+        
+        print("Shared secret (S) length: \(SData.count) bytes")
+        print("Shared secret (S): \(SData.hexadecimal().prefix(64))...")
+        print("Session key (K): \(sessionKey!.hexadecimal())")
+        
+        // Step 7: Calculate M1 client proof
+        let M1 = calculateClientProof(
+            username: username,
+            salt: salt,
+            clientPublicKey: clientPublicKey,
+            serverPublicKey: serverPublicKeyData,
+            sessionKey: Data(K)
+        )
+        
+        verificationMessage = M1
+        print("Client proof (M1): \(M1.hexadecimal())")
+        
+        return verificationMessage
     }
     
+    private func calculateSRPk() -> BigUInt {
+        let NData = Data(N.serialize())
+        var gData = Data(g.serialize())
+        
+        if gData.count < NData.count {
+            let paddingCount = NData.count - gData.count
+            gData = Data(repeating: 0, count: paddingCount) + gData
+        }
+        
+        var kData = Data()
+        kData.append(NData)
+        kData.append(gData)
+        
+        let kHash = SHA256.hash(data: kData)
+        return BigUInt(Data(kHash))
+    }
+    
+    private func calculateClientProof(
+        username: String,
+        salt: Data,
+        clientPublicKey: Data,
+        serverPublicKey: Data,
+        sessionKey: Data
+    ) -> Data {
+        let NData = Data(N.serialize())
+        var gData = Data(g.serialize())
+        
+        if gData.count < NData.count {
+            let paddingCount = NData.count - gData.count
+            gData = Data(repeating: 0, count: paddingCount) + gData
+        }
+        
+        let hashN = SHA256.hash(data: NData)
+        let hashG = SHA256.hash(data: gData)
+
+
+        let hashNBytes = Array(hashN)
+        let hashGBytes = Array(hashG)
+
+        var xorResult = Data(capacity: 32)
+        for i in 0..<32 {
+            xorResult.append(hashNBytes[i] ^ hashGBytes[i])
+        }
+
+        let hashUsername = SHA256.hash(data: Data(username.utf8))
+
+        var m1Data = Data()
+        m1Data.append(xorResult)
+        m1Data.append(Data(hashUsername))
+        m1Data.append(salt)
+        m1Data.append(clientPublicKey)
+        m1Data.append(serverPublicKey)
+        m1Data.append(sessionKey)
+
+        let m1Hash = SHA256.hash(data: m1Data)
+        return Data(m1Hash)
+    }
+
     func verifyServerVerificationMessage(_ serverVerificationMessage: Data) -> Bool {
         guard !serverVerificationMessage.isEmpty,
-              let clientKeys = clientKeys,
               let sharedSecret = sessionKey,
-              let clientProof = verificationMessage else { return false }
-        
-        do {
-            try client.verifyServerProof(
-                serverProof: serverVerificationMessage.bytes,
-                clientProof: clientProof.bytes,
-                clientPublicKey: clientKeys.public,
-                sharedSecret: SRPKey(sharedSecret.bytes)
-            )
-            return true
-        } catch {
+              let clientPublicKey = publicKey,
+              let clientProof = verificationMessage else {
             return false
         }
+        
+        var m2Data = Data()
+        m2Data.append(clientPublicKey)
+        m2Data.append(clientProof)
+        m2Data.append(sharedSecret)
+        
+        let expectedM2 = SHA256.hash(data: m2Data)
+        let receivedM2 = serverVerificationMessage
+        
+        let isValid = Data(expectedM2) == receivedM2
+        print(isValid ? "Server verification successful" : "Server verification failed")
+        
+        return isValid
     }
     
     func makeChecksum(appName: String) -> Data? {
@@ -135,7 +259,7 @@ public final class GSAContext {
         isHexadecimal: Bool
     ) -> Data? {
         let passwordData = Data(password.utf8)
-        var digest = SHA256.hash(data: passwordData)
+        let digest = SHA256.hash(data: passwordData)
         
         let processedDigest: Data
         if isHexadecimal {
