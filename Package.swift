@@ -12,14 +12,15 @@ let package = Package(
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
-            name: "StosSignLib",
-            targets: ["StosOpenSSL", "StosCSRP","StosSign"]),
+            name: "StosSign",
+            targets: ["StosOpenSSL","StosSign"]),
     ],
     dependencies: [
         // .package(url: "https://github.com/stossy11/CoreCrypto-SPM", branch: "master"),
         .package(url: "https://github.com/apple/swift-crypto.git", "1.0.0" ..< "5.0.0"),
         .package(url: "https://github.com/marmelroy/Zip.git", branch: "master"),
-        .package(url: "https://github.com/zwsn/zsign-ios.git", branch: "main")
+        .package(url: "https://github.com/zwsn/zsign-ios.git", branch: "main"),
+        .package(url: "https://github.com/adam-fowler/swift-srp.git", revision: "ce202c48f8ca68f44b71732f945eb8221d6fe135")
         //https://github.com/marmelroy/Zip
     ],
     targets: [
@@ -30,9 +31,9 @@ let package = Package(
             dependencies: [
                 .product(name: "ZSignApple", package: "zsign-ios"),
                 .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "SRP", package: "swift-srp"),
                 .product(name: "Zip", package: "Zip"),
-                "StosOpenSSL",
-                "StosCSRP"
+                "StosOpenSSL"
             ]
         ),
         .target(
@@ -41,12 +42,6 @@ let package = Package(
                 .product(name: "ZSignApple", package: "zsign-ios")
             ],
             path: "Sources/Dependencies/Modules/OpenSSL"
-        ),
-        .target(
-            name: "StosCSRP",
-            dependencies: [
-            ],
-            path: "Sources/Dependencies/Modules/csrp"
         ),
     ],
     

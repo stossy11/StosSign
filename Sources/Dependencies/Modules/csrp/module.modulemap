@@ -1,5 +1,0 @@
-module StosCSRP {
-    header "srp.h"
-    export *
-}
-

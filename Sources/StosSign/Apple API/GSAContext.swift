@@ -9,7 +9,7 @@
 import Foundation
 import Crypto
 import CommonCrypto
-import StosCSRP
+import SRP
 
 public final class GSAContext {
     public let username: String
@@ -23,53 +23,32 @@ public final class GSAContext {
     private(set) var derivedPasswordKey: Data?
     private(set) var verificationMessage: Data?
     
-    private var srpUser: OpaquePointer?
-    private let algorithm: SRP_HashAlgorithm = SRP_SHA256
-    private let ngType: SRP_NGType = SRP_NG_2048
+    private var clientKeys: SRPKeyPair?
+    private let configuration = SRPConfiguration<SHA256>(.N2048)
+    private lazy var client = SRPClient(configuration: configuration)
     
     init(username: String, password: String) {
         self.username = username
         self.password = password
     }
     
-    deinit {
-        if let user = srpUser {
-            srp_user_delete(user)
-        }
-    }
-    
     func start() -> Data? {
         guard publicKey == nil else { return nil }
         
-        srpUser = srp_user_new(
-            algorithm,
-            ngType,
-            username,
-            password.data(using: .utf8)!.withUnsafeBytes { $0.baseAddress!.assumingMemoryBound(to: UInt8.self) },
-            Int32(password.utf8.count),
-            nil,
-            nil
-        )
-        
-        guard let user = srpUser else { return nil }
-        
-        var authUsername: UnsafePointer<CChar>?
-        var bytesA: UnsafePointer<UInt8>?
-        var lenA: Int32 = 0
-        
-        srp_user_start_authentication(user, &authUsername, &bytesA, &lenA)
-        
-        guard let bytes = bytesA, lenA > 0 else { return nil }
-        publicKey = Data(bytes: bytes, count: Int(lenA))
+        clientKeys = client.generateKeys()
+        publicKey = Data(clientKeys?.public.bytes ?? [])
         
         return publicKey
     }
     
     func makeVerificationMessage(iterations: Int, isHexadecimal: Bool) -> Data? {
+        
         guard verificationMessage == nil,
               let salt = salt,
-              let serverPublicKey = serverPublicKey,
-              let user = srpUser else { return nil }
+              let serverPublicKeyData = serverPublicKey,
+              let clientKeys = clientKeys else { return nil }
+        let serverPublicKey = SRPKey(serverPublicKeyData.bytes)
+        
         
         guard let derivedPasswordKey = makeX(
             password: password,
@@ -80,49 +59,50 @@ public final class GSAContext {
         
         self.derivedPasswordKey = derivedPasswordKey
         
-        var bytesM: UnsafePointer<UInt8>?
-        var lenM: Int32 = 0
-        
-        salt.withUnsafeBytes { saltBytes in
-            serverPublicKey.withUnsafeBytes { bBytes in
-                srp_user_process_challenge(
-                    user,
-                    saltBytes.baseAddress!.assumingMemoryBound(to: UInt8.self),
-                    Int32(salt.count),
-                    bBytes.baseAddress!.assumingMemoryBound(to: UInt8.self),
-                    Int32(serverPublicKey.count),
-                    &bytesM,
-                    &lenM
-                )
-            }
+        do {
+            let sharedSecret = try client.calculateSharedSecret(
+                username: username,
+                password: password,
+                salt: salt.bytes,
+                clientKeys: clientKeys,
+                serverPublicKey: serverPublicKey
+            )
+            
+            sessionKey = Data(sharedSecret.bytes)
+            
+            let clientProof = client.calculateClientProof(
+                username: username,
+                salt: salt.bytes,
+                clientPublicKey: clientKeys.public,
+                serverPublicKey: serverPublicKey,
+                sharedSecret: sharedSecret
+            )
+            
+            verificationMessage = Data(clientProof)
+            
+            return verificationMessage
+        } catch {
+            return nil
         }
-        
-        guard let m = bytesM, lenM > 0 else { return nil }
-        verificationMessage = Data(bytes: m, count: Int(lenM))
-        
-        let keyLength = srp_user_get_session_key_length(user)
-        if keyLength > 0 {
-            let keyBytes = srp_user_get_session_key(user, nil)
-            if let key = keyBytes {
-                sessionKey = Data(bytes: key, count: Int(keyLength))
-            }
-        }
-        
-        return verificationMessage
     }
     
     func verifyServerVerificationMessage(_ serverVerificationMessage: Data) -> Bool {
         guard !serverVerificationMessage.isEmpty,
-              let user = srpUser else { return false }
+              let clientKeys = clientKeys,
+              let sharedSecret = sessionKey,
+              let clientProof = verificationMessage else { return false }
         
-        serverVerificationMessage.withUnsafeBytes { bytes in
-            srp_user_verify_session(
-                user,
-                bytes.baseAddress!.assumingMemoryBound(to: UInt8.self)
+        do {
+            try client.verifyServerProof(
+                serverProof: serverVerificationMessage.bytes,
+                clientProof: clientProof.bytes,
+                clientPublicKey: clientKeys.public,
+                sharedSecret: SRPKey(sharedSecret.bytes)
             )
+            return true
+        } catch {
+            return false
         }
-        
-        return srp_user_is_authenticated(user) != 0
     }
     
     func makeChecksum(appName: String) -> Data? {

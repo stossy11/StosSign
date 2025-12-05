@@ -2,6 +2,15 @@
   "object": {
     "pins": [
       {
+        "package": "big-num",
+        "repositoryURL": "https://github.com/adam-fowler/big-num",
+        "state": {
+          "branch": null,
+          "revision": "5c5511ad06aeb2b97d0868f7394e14a624bfb1c7",
+          "version": "2.0.2"
+        }
+      },
+      {
         "package": "swift-asn1",
         "repositoryURL": "https://github.com/apple/swift-asn1.git",
         "state": {
@@ -17,6 +26,15 @@
           "branch": null,
           "revision": "6f70fa9eab24c1fd982af18c281c4525d05e3095",
           "version": "4.2.0"
+        }
+      },
+      {
+        "package": "swift-srp",
+        "repositoryURL": "https://github.com/adam-fowler/swift-srp.git",
+        "state": {
+          "branch": null,
+          "revision": "ce202c48f8ca68f44b71732f945eb8221d6fe135",
+          "version": null
         }
       },
       {
