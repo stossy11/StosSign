@@ -2,12 +2,21 @@
   "object": {
     "pins": [
       {
-        "package": "CoreCrypto",
-        "repositoryURL": "https://github.com/stossy11/CoreCrypto-SPM",
+        "package": "swift-asn1",
+        "repositoryURL": "https://github.com/apple/swift-asn1.git",
         "state": {
-          "branch": "master",
-          "revision": "32afe5672e5a1bb8cdaf8d46f6558af91c9dc197",
-          "version": null
+          "branch": null,
+          "revision": "810496cf121e525d660cd0ea89a758740476b85f",
+          "version": "1.5.1"
+        }
+      },
+      {
+        "package": "swift-crypto",
+        "repositoryURL": "https://github.com/apple/swift-crypto.git",
+        "state": {
+          "branch": null,
+          "revision": "6f70fa9eab24c1fd982af18c281c4525d05e3095",
+          "version": "4.2.0"
         }
       },
       {

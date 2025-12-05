@@ -12,13 +12,15 @@ let QH_Protocol = "QH65B2"
 let V1_Protocol = "v1"
 let authProtocol = "A1234"
 
-public class AppleAPI {
-    let session = URLSession(configuration: URLSessionConfiguration.ephemeral)
+public final class AppleAPI {
+    public let session = URLSession(configuration: URLSessionConfiguration.ephemeral)
     let dateFormatter = ISO8601DateFormatter()
     let qhURL = URL(string: "https://developerservices2.apple.com/services/\(QH_Protocol)/")!
     let v1URL = URL(string: "https://developerservices2.apple.com/services/\(V1_Protocol)/")!
     
-    public init() {}
+    public static var shared = AppleAPI()
+    
+    private init() {}
     
     public func fetchTeamsForAccount(account: Account, session: AppleAPISession, completion: @escaping ([Team]?, Error?) -> Void) {
         let url = qhURL.appendingPathComponent("listTeams.action")
@@ -197,7 +199,7 @@ public class AppleAPI {
             
             let decoder = JSONDecoder()
             let certificates = data.compactMap { dict -> Certificate? in
-                return Certificate(responseDictionary: dict)
+                return Certificate(response: dict)
             }
             
             completion(certificates, nil)
@@ -267,7 +269,7 @@ public class AppleAPI {
 
                                print("Certificate Request Response: \(certRequestDict)")
                                
-                               let certificate = Certificate(responseDictionary: certRequestDict)!
+                               let certificate = Certificate(response: certRequestDict)!
                                
                                certificate.privateKey = certificateRequest.privateKey
                                completion(certificate, nil)

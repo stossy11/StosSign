@@ -13,10 +13,11 @@ let package = Package(
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
             name: "StosSign",
-            targets: ["StosOpenSSL", "StosSign"]),
+            targets: ["StosOpenSSL", "StosCSRP","StosSign"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/stossy11/CoreCrypto-SPM", branch: "master"),
+        // .package(url: "https://github.com/stossy11/CoreCrypto-SPM", branch: "master"),
+        .package(url: "https://github.com/apple/swift-crypto.git", "1.0.0" ..< "5.0.0"),
         .package(url: "https://github.com/marmelroy/Zip.git", branch: "master"),
         .package(url: "https://github.com/zwsn/zsign-ios.git", branch: "main")
         //https://github.com/marmelroy/Zip
@@ -28,9 +29,10 @@ let package = Package(
             name: "StosSign",
             dependencies: [
                 .product(name: "ZSignApple", package: "zsign-ios"),
-                .product(name: "CoreCrypto", package: "CoreCrypto-SPM"),
+                .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "Zip", package: "Zip"),
-                "StosOpenSSL"
+                "StosOpenSSL",
+                "StosCSRP"
             ]
         ),
         .target(
@@ -39,6 +41,12 @@ let package = Package(
                 .product(name: "ZSignApple", package: "zsign-ios")
             ],
             path: "Sources/Dependencies/Modules/OpenSSL"
+        ),
+        .target(
+            name: "StosCSRP",
+            dependencies: [
+            ],
+            path: "Sources/Dependencies/Modules/csrp"
         ),
     ],
     

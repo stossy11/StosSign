@@ -17,7 +17,7 @@ let entitlementIncreasedDebuggingMemoryLimit = "com.apple.developer.kernel.incre
 let entitlementExtendedVirtualAddressing = "com.apple.developer.kernel.extended-virtual-addressing"
 
 // Capabilities
-let capabilityIncreasedMemoryLimit = "increasedMemoryLimit" // INCREASED_MEMORY_LIMIT
+let capabilityIncreasedMemoryLimit = "INCREASED_MEMORY_LIMIT" 
 let capabilityIncreasedDebuggingMemoryLimit = "INCREASED_MEMORY_LIMIT_DEBUGGING"
 let capabilityExtendedVirtualAddressing = "EXTENDED_VIRTUAL_ADDRESSING"
 

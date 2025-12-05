@@ -171,7 +171,7 @@ func CertificatesContent(certificate: Certificate) -> Data {
 }
 
 
-public class Signer {
+public final class Signer {
     public let team: Team
     public let certificate: Certificate
     

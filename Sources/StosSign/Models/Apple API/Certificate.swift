@@ -7,14 +7,242 @@
 
 import Foundation
 import StosOpenSSL
-import os.log
 
-// MARK: - Extensions
+public final class Certificate {
+    public let name: String
+    public let serialNumber: String
+    public let data: Data?
+    public var privateKey: Data?
+    
+    public var machineName: String?
+    public var machineIdentifier: String?
+    public var identifier: String?
+    
+    public init(name: String, serialNumber: String, data: Data? = nil, privateKey: Data? = nil) {
+        self.name = name
+        self.serialNumber = serialNumber
+        self.data = data
+        self.privateKey = privateKey
+    }
+    
+    public convenience init?(certificateData: Data) {
+        let pemData = certificateData.isPEM ? certificateData : certificateData.asPEM()
+        guard let pemData else { return nil }
+        
+        guard let parsed = Self.parse(pemData) else { return nil }
+        
+        let trimmedSerial = parsed.serial.drop(while: { $0 == "0" })
+        guard !trimmedSerial.isEmpty else { return nil }
+        
+        self.init(
+            name: parsed.name,
+            serialNumber: String(trimmedSerial),
+            data: pemData
+        )
+    }
+    
+    public convenience init?(p12Data: Data, password: String? = nil) {
+        guard let components = Self.extractFromP12(p12Data, password: password ?? "") else {
+            return nil
+        }
+        
+        guard let certificate = Certificate(certificateData: components.certificate) else {
+            return nil
+        }
+        
+        self.init(
+            name: certificate.name,
+            serialNumber: certificate.serialNumber,
+            data: certificate.data,
+            privateKey: components.privateKey
+        )
+    }
+    
+    public convenience init?(response: [String: Any]) {
+        let attributes = response["attributes"] as? [String: Any] ?? response
+        
+        let certificateData = Self.extractCertificateData(from: attributes)
+        let machineName = Self.extractString(attributes["machineName"])
+        let machineIdentifier = Self.extractString(attributes["machineId"])
+        let identifier = Self.extractString(response["id"])
+        
+        if let data = certificateData, let certificate = Certificate(certificateData: data) {
+            self.init(
+                name: certificate.name,
+                serialNumber: certificate.serialNumber,
+                data: certificate.data
+            )
+        } else {
+            let name = Self.extractString(attributes["name"]) ?? ""
+            let serial = Self.extractString(attributes["serialNumber"]) ??
+                        Self.extractString(attributes["serialNum"]) ?? ""
+            self.init(name: name, serialNumber: serial, data: nil)
+        }
+        
+        self.machineName = machineName
+        self.machineIdentifier = machineIdentifier
+        self.identifier = identifier
+    }
+    
+    public var p12Data: Data? {
+        encryptedP12Data(password: "")
+    }
+    
+    public func encryptedP12Data(password: String) -> Data? {
+        guard let certificateData = data,
+              let privateKeyData = privateKey else {
+            return nil
+        }
+        
+        return Self.createP12(
+            certificate: certificateData,
+            privateKey: privateKeyData,
+            password: password
+        )
+    }
+    
+    private static func parse(_ pemData: Data) -> (name: String, serial: String)? {
+        var name: UnsafeMutablePointer<CChar>?
+        var nameLength: size_t = 0
+        var serial: UnsafeMutablePointer<CChar>?
+        var serialLength: size_t = 0
+        
+        let success = pemData.withUnsafeBytes { buffer in
+            guard let base = buffer.baseAddress else { return false }
+            return parse_certificate_data(
+                base.assumingMemoryBound(to: UInt8.self),
+                Int32(pemData.count),
+                &name,
+                &nameLength,
+                &serial,
+                &serialLength
+            )
+        }
+        
+        guard success,
+              let namePointer = name,
+              let serialPointer = serial else {
+            return nil
+        }
+        
+        defer {
+            free(name)
+            free(serial)
+        }
+        
+        return (String(cString: namePointer), String(cString: serialPointer))
+    }
+    
+    private static func extractFromP12(_ p12Data: Data, password: String) -> (certificate: Data, privateKey: Data)? {
+        var certificatePointer: UnsafeMutablePointer<UInt8>?
+        var certificateLength: size_t = 0
+        var keyPointer: UnsafeMutablePointer<UInt8>?
+        var keyLength: size_t = 0
+        
+        let success = p12Data.withUnsafeBytes { buffer in
+            guard let base = buffer.baseAddress else { return false }
+            return parse_p12_data(
+                base.assumingMemoryBound(to: UInt8.self),
+                Int32(p12Data.count),
+                password.cString(using: .utf8),
+                &certificatePointer,
+                &certificateLength,
+                &keyPointer,
+                &keyLength
+            )
+        }
+        
+        guard success,
+              let certPointer = certificatePointer,
+              certificateLength > 0,
+              let privKeyPointer = keyPointer,
+              keyLength > 0 else {
+            certificatePointer.map { free($0) }
+            keyPointer.map { free($0) }
+            return nil
+        }
+        
+        defer {
+            free(certificatePointer)
+            free(keyPointer)
+        }
+        
+        let certificate = Data(bytes: certPointer, count: certificateLength)
+        let privateKey = Data(bytes: privKeyPointer, count: keyLength)
+        
+        return (certificate, privateKey)
+    }
+    
+    private static func createP12(certificate: Data, privateKey: Data, password: String) -> Data? {
+        var p12Pointer: UnsafeMutablePointer<UInt8>?
+        var p12Length: size_t = 0
+        
+        let success = certificate.withUnsafeBytes { certBuffer in
+            guard let certBase = certBuffer.baseAddress else { return false }
+            return privateKey.withUnsafeBytes { keyBuffer in
+                guard let keyBase = keyBuffer.baseAddress else { return false }
+                return create_p12_data(
+                    certBase.assumingMemoryBound(to: UInt8.self),
+                    Int32(certificate.count),
+                    keyBase.assumingMemoryBound(to: UInt8.self),
+                    Int32(privateKey.count),
+                    password.cString(using: .utf8),
+                    &p12Pointer,
+                    &p12Length
+                )
+            }
+        }
+        
+        guard success,
+              let pointer = p12Pointer,
+              p12Length > 0 else {
+            return nil
+        }
+        
+        defer { free(p12Pointer) }
+        return Data(bytes: pointer, count: p12Length)
+    }
+    
+    private static func extractCertificateData(from attributes: [String: Any]) -> Data? {
+        if let data = attributes["certContent"] as? Data {
+            return data
+        }
+        
+        if let encoded = attributes["certificateContent"] as? String {
+            return Data(base64Encoded: encoded)
+        }
+        
+        return nil
+    }
+    
+    private static func extractString(_ value: Any?) -> String? {
+        guard let string = value as? String,
+              !(value is NSNull) else {
+            return nil
+        }
+        return string
+    }
+}
+
+
+// extensions, since i wanna try something new :3
+extension Certificate: Equatable {
+    public static func == (lhs: Certificate, rhs: Certificate) -> Bool {
+        lhs.serialNumber == rhs.serialNumber
+    }
+}
+
+extension Certificate: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(serialNumber)
+    }
+}
+
 extension String {
     func chunked(into size: Int) -> [String] {
-        return stride(from: 0, to: count, by: size).map {
+        stride(from: 0, to: count, by: size).map {
             let start = index(startIndex, offsetBy: $0)
-            let end = index(start, offsetBy: min(size, count - $0))
+            let end = index(start, offsetBy: size, limitedBy: endIndex) ?? endIndex
             return String(self[start..<end])
         }
     }
@@ -23,298 +251,13 @@ extension String {
 extension Data {
     var isPEM: Bool {
         guard let string = String(data: self, encoding: .utf8) else { return false }
-        return string.contains("-----BEGIN CERTIFICATE-----") && string.contains("-----END CERTIFICATE-----")
+        return string.hasPrefix("-----BEGIN CERTIFICATE-----")
     }
     
-    var pemFormat: Data? {
-        // If already PEM, return as is
-        if isPEM { return self }
-        
-        // Convert DER to PEM
-        let base64String = self.base64EncodedString()
-        let pemString = "-----BEGIN CERTIFICATE-----\n" + 
-                       base64String.chunked(into: 64).joined(separator: "\n") + 
-                       "\n-----END CERTIFICATE-----"
-        return pemString.data(using: .utf8)
-    }
-    
-    var withoutComments: Data? {
-        guard let string = String(data: self, encoding: .utf8) else { return self }
-        
-        // Remove comments (lines starting with #)
-        let lines = string.components(separatedBy: .newlines)
-        let filteredLines = lines.filter { line in
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            return !trimmed.isEmpty && !trimmed.hasPrefix("#")
-        }
-        
-        let cleanedString = filteredLines.joined(separator: "\n")
-        return cleanedString.data(using: .utf8)
-    }
-}
-
-public class Certificate: Equatable, Hashable {
-    public let name: String
-    public let serialNumber: String
-    public var data: Data?
-    public var p12Data: Data?
-    public var privateKey: Data?
-    public var machineName: String?
-    public var machineIdentifier: String?
-    public var identifier: String?
-    
-    private var cachedP12Data: Data?
-    private var cachedP12Password: String?
-    
-    private static let logger = Logger(subsystem: "Certificate", category: "Operations")
-    
-    public init(name: String, serialNumber: String, data: Data? = nil) {
-        self.name = name
-        self.serialNumber = serialNumber
-        self.data = data
-        self.p12Data = encryptedP12Data(password: "")
-        
-        Self.logger.info("Certificate initialized - Name: \(name), Serial: \(serialNumber)")
-    }
-    
-    public convenience init?(data certData: Data) {
-        Self.logger.info("Initializing certificate from data (\(certData.count) bytes)")
-        
-        // Remove comments first
-        guard let cleanData = certData.withoutComments else {
-            Self.logger.error("Failed to clean certificate data")
-            return nil
-        }
-        
-        let finalData: Data
-        
-        if cleanData.isPEM {
-            Self.logger.info("Data is already in PEM format")
-            finalData = cleanData
-            
-            guard let pemString = String(data: cleanData, encoding: .utf8) else {
-                Self.logger.error("Failed to convert PEM data to string")
-                return nil
-            }
-            
-            let lines = pemString.components(separatedBy: .newlines)
-            let base64Lines = lines.filter { line in
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                return !trimmed.isEmpty && 
-                       !trimmed.hasPrefix("-----BEGIN") && 
-                       !trimmed.hasPrefix("-----END")
-            }
-            
-            let base64String = base64Lines.joined()
-            guard let derData = Data(base64Encoded: base64String) else {
-                Self.logger.error("Failed to decode base64 from PEM")
-                return nil
-            }
-            
-            var name: UnsafeMutablePointer<CChar>?
-            var nameLength: size_t = 0
-            var serialNumber: UnsafeMutablePointer<CChar>?
-            var serialNumberLength: size_t = 0
-            
-            let success = derData.withUnsafeBytes { bytes in
-                guard let baseAddress = bytes.baseAddress else { return false }
-                return parse_certificate_data(
-                    baseAddress.assumingMemoryBound(to: UInt8.self),
-                    Int32(derData.count),
-                    &name,
-                    &nameLength,
-                    &serialNumber,
-                    &serialNumberLength
-                )
-            }
-            
-            guard success,
-                  let namePtr = name,
-                  let serialPtr = serialNumber else {
-                Self.logger.error("Failed to parse PEM certificate data with OpenSSL")
-                return nil
-            }
-            
-            let nameString = String(cString: namePtr)
-            let serialNumberString = String(cString: serialPtr)
-            
-            free(name)
-            free(serialNumber)
-            
-            Self.logger.info("Successfully parsed PEM certificate - Name: \(nameString), Serial: \(serialNumberString)")
-            self.init(name: nameString, serialNumber: serialNumberString, data: finalData)
-        } else {
-            guard cleanData.first == 0x30 else {
-                Self.logger.error("Invalid DER format: first byte is 0x\(String(format: "%02X", cleanData.first ?? 0)), expected 0x30")
-                return nil
-            }
-            
-            Self.logger.info("Converting DER to PEM format")
-            
-            var name: UnsafeMutablePointer<CChar>?
-            var nameLength: size_t = 0
-            var serialNumber: UnsafeMutablePointer<CChar>?
-            var serialNumberLength: size_t = 0
-            
-            let success = cleanData.withUnsafeBytes { bytes in
-                guard let baseAddress = bytes.baseAddress else { return false }
-                return parse_certificate_data(
-                    baseAddress.assumingMemoryBound(to: UInt8.self),
-                    Int32(cleanData.count),
-                    &name,
-                    &nameLength,
-                    &serialNumber,
-                    &serialNumberLength
-                )
-            }
-            
-            guard success,
-                  let namePtr = name,
-                  let serialPtr = serialNumber else {
-                Self.logger.error("Failed to parse certificate data with OpenSSL")
-                return nil
-            }
-            
-            let nameString = String(cString: namePtr)
-            let serialNumberString = String(cString: serialPtr)
-            
-            free(name)
-            free(serialNumber)
-            
-            guard let pemData = cleanData.pemFormat else {
-                Self.logger.error("Failed to convert DER to PEM format")
-                return nil
-            }
-            
-            finalData = pemData
-            Self.logger.info("Successfully converted DER to PEM and parsed certificate - Name: \(nameString), Serial: \(serialNumberString)")
-            self.init(name: nameString, serialNumber: serialNumberString, data: finalData)
-        }
-    }
-    
-    public convenience init?(responseDictionary: [String: Any]) {
-        Self.logger.info("Initializing certificate from response dictionary")
-        
-        let identifier = responseDictionary["id"] as? String ??
-                        responseDictionary["certificateId"] as? String ??
-                        responseDictionary["certRequestId"] as? String
-        let attributes = responseDictionary["attributes"] as? [String: Any] ?? responseDictionary
-        
-        var certData: Data?
-        if let content = attributes["certContent"] as? Data {
-            certData = content
-        } else if let encodedData = attributes["certificateContent"] as? String {
-            // Clean the base64 string and decode
-            let cleanedBase64 = encodedData.replacingOccurrences(of: "\n", with: "")
-                                        .replacingOccurrences(of: "\r", with: "")
-                                        .replacingOccurrences(of: " ", with: "")
-            if let base64Data = Data(base64Encoded: cleanedBase64) {
-                certData = base64Data
-                Self.logger.info("Successfully decoded certificate data: \(base64Data.count) bytes")
-            } else {
-                Self.logger.error("Failed to decode base64 certificate content")
-            }
-        }
-        
-        let machineName = attributes["machineName"] as? String
-        let machineIdentifier = attributes["machineId"] as? String
-        
-        if let data = certData, let certificate = Certificate(data: data) {
-            Self.logger.info("Successfully parsed certificate from data")
-            self.init(name: certificate.name, serialNumber: certificate.serialNumber, data: certificate.data)
-            self.privateKey = certificate.privateKey
-        } else {
-            Self.logger.warning("Falling back to attributes parsing")
-            let name = attributes["name"] as? String ?? 
-                    attributes["displayName"] as? String ?? ""
-            let serialNumber = (attributes["serialNumber"] as? String) ?? 
-                            (attributes["serialNum"] as? String) ?? ""
-            
-            let finalData = certData?.withoutComments?.pemFormat
-            self.init(name: name, serialNumber: serialNumber, data: finalData)
-        }
-        
-        self.machineName = machineName
-        self.machineIdentifier = machineIdentifier
-        self.identifier = identifier
-        
-        if let finalData = self.data {
-            Self.logger.info("✅ Certificate initialized with data: \(finalData.count) bytes")
-        } else {
-            Self.logger.warning("⚠️ Certificate initialized with nil data")
-        }
-    }
-        
-    
-    public func encryptedP12Data(password: String) -> Data? {
-        if let cached = cachedP12Data, cachedP12Password == password {
-            return cached
-        }
-        
-        guard let certData = data,
-              let keyData = privateKey else {
-            Self.logger.error("Cannot create P12: missing certificate data or private key")
-            return nil
-        }
-        
-        let result = createP12(certData: certData, keyData: keyData, password: password)
-
-        print("Created P12 data with password: \(password)")
-        print(p12Data?.count ?? 0)
-
-        if let p12Data = result {
-            cachedP12Data = p12Data
-            cachedP12Password = password
-        }
-
-        
-        return result
-    }
-    
-    public func createP12(certData: Data, keyData: Data, password: String) -> Data? {
-        let passwordCString = password.cString(using: .utf8)
-        var p12Data: UnsafeMutablePointer<UInt8>?
-        var p12Length: size_t = 0
-        
-        let success = certData.withUnsafeBytes { certBytes in
-            guard let certBase = certBytes.baseAddress else { return false }
-            return keyData.withUnsafeBytes { keyBytes in
-                guard let keyBase = keyBytes.baseAddress else { return false }
-                return create_p12_data(
-                    certBase.assumingMemoryBound(to: UInt8.self),
-                    Int32(certData.count),
-                    keyBase.assumingMemoryBound(to: UInt8.self),
-                    Int32(keyData.count),
-                    passwordCString,
-                    &p12Data,
-                    &p12Length
-                )
-            }
-        }
-        
-        guard success,
-              let p12Pointer = p12Data,
-              p12Length > 0 else {
-            Self.logger.error("Failed to create P12 data")
-            return nil
-        }
-        
-        let result = Data(bytes: p12Pointer, count: p12Length)
-        free(p12Data)
-        
-        return result
-    }
-    
-    public func clearP12Cache() {
-        cachedP12Data = nil
-        cachedP12Password = nil
-    }
-    
-    public static func == (lhs: Certificate, rhs: Certificate) -> Bool {
-        return lhs.serialNumber == rhs.serialNumber
-    }
-    
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(serialNumber)
+    func asPEM() -> Data? {
+        guard !isPEM else { return self }
+        let base64 = base64EncodedString(options: .lineLength64Characters)
+        let pem = "-----BEGIN CERTIFICATE-----\n\(base64)\n-----END CERTIFICATE-----"
+        return pem.data(using: .utf8)
     }
 }
