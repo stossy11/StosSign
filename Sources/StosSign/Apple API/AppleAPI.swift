@@ -218,10 +218,11 @@ public final class AppleAPI {
 
             throw AppleAPIError.badServerResponse
         }
+        
 
         print("Certificate Request Response: \(certRequestDict)")
         
-        guard let certificate = Certificate(response: certRequestDict) else {
+        guard let certificate = Certificate(response: certRequestDict, certData: csr) else {
             throw AppleAPIError.badServerResponse
         }
         

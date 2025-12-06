@@ -76,14 +76,15 @@ public final class Certificate {
         )
     }
     
-    public convenience init?(response: [String: Any]) {
+    public convenience init?(response: [String: Any], certData: Data? = nil) {
         let attributes = response["attributes"] as? [String: Any] ?? response
         
-        let certificateData = Self.extractCertificateData(from: attributes)
+        let certificateData = Self.extractCertificateData(from: attributes) ?? certData
         
         let machineName = Self.extractString(attributes["machineName"])
         let machineIdentifier = Self.extractString(attributes["machineId"])
-        let identifier = Self.extractString(response["id"])
+        let identifier2 = Self.extractString(response["id"])
+        let identifier = identifier2 ?? Self.extractString(attributes["certificateId"])
         
         if let data = certificateData, let certificate = Certificate(certificateData: data) {
             self.init(

@@ -171,6 +171,78 @@ func CertificatesContent(certificate: Certificate) -> Data {
 }
 
 
+
+
+public enum SigningError: LocalizedError {
+    case missingAppBundle(underlyingError: Error)
+    case invalidApp
+    case missingProvisioningProfile(bundleIdentifier: String)
+    case missingCertificate
+    case signingFailed(component: String, details: String?)
+    case fileOperationFailed(Error)
+    case unknown(String)
+    
+    public var errorDescription: String? {
+        switch self {
+        case .missingAppBundle:
+            return NSLocalizedString("Missing App Bundle", comment: "Error when app bundle cannot be found")
+        case .invalidApp:
+            return NSLocalizedString("Invalid Application", comment: "Error when app is invalid or corrupted")
+        case .missingProvisioningProfile(let bundleIdentifier):
+            return String(format: NSLocalizedString("Missing Provisioning Profile for '%@'", comment: "Error when provisioning profile is missing"), bundleIdentifier)
+        case .missingCertificate:
+            return NSLocalizedString("Missing Certificate", comment: "Error when certificate is missing")
+        case .signingFailed(let component, _):
+            return String(format: NSLocalizedString("Failed to Sign %@", comment: "Error when signing fails"), component)
+        case .fileOperationFailed:
+            return NSLocalizedString("File Operation Failed", comment: "Error when file operation fails")
+        case .unknown:
+            return NSLocalizedString("Unknown Error", comment: "Generic unknown error")
+        }
+    }
+    
+    public var failureReason: String? {
+        switch self {
+        case .missingAppBundle(let error):
+            return String(format: NSLocalizedString("The app bundle could not be extracted or found: %@", comment: "Failure reason for missing app bundle"), error.localizedDescription)
+        case .invalidApp:
+            return NSLocalizedString("The application file is invalid or corrupted and cannot be signed.", comment: "Failure reason for invalid app")
+        case .missingProvisioningProfile(let bundleIdentifier):
+            return String(format: NSLocalizedString("No provisioning profile was found that matches the bundle identifier '%@'.", comment: "Failure reason for missing provisioning profile"), bundleIdentifier)
+        case .missingCertificate:
+            return NSLocalizedString("The certificate or private key is missing or invalid.", comment: "Failure reason for missing certificate")
+        case .signingFailed(let component, let details):
+            if let details = details {
+                return String(format: NSLocalizedString("The signing process failed for %@: %@", comment: "Failure reason for signing failure with details"), component, details)
+            }
+            return String(format: NSLocalizedString("The signing process failed for %@.", comment: "Failure reason for signing failure"), component)
+        case .fileOperationFailed(let error):
+            return String(format: NSLocalizedString("A file operation failed: %@", comment: "Failure reason for file operation failure"), error.localizedDescription)
+        case .unknown(let message):
+            return message
+        }
+    }
+    
+    public var recoverySuggestion: String? {
+        switch self {
+        case .missingAppBundle:
+            return NSLocalizedString("Ensure the IPA file is not corrupted and try again.", comment: "Recovery suggestion for missing app bundle")
+        case .invalidApp:
+            return NSLocalizedString("Verify the application file is a valid iOS app and try again.", comment: "Recovery suggestion for invalid app")
+        case .missingProvisioningProfile:
+            return NSLocalizedString("Add a provisioning profile that matches the app's bundle identifier.", comment: "Recovery suggestion for missing provisioning profile")
+        case .missingCertificate:
+            return NSLocalizedString("Ensure you have selected a valid certificate with a private key.", comment: "Recovery suggestion for missing certificate")
+        case .signingFailed:
+            return NSLocalizedString("Check your certificate and provisioning profile, then try again.", comment: "Recovery suggestion for signing failure")
+        case .fileOperationFailed:
+            return NSLocalizedString("Check file permissions and available disk space.", comment: "Recovery suggestion for file operation failure")
+        case .unknown:
+            return NSLocalizedString("Please try again or contact support if the problem persists.", comment: "Recovery suggestion for unknown error")
+        }
+    }
+}
+
 public final class Signer {
     public let team: Team
     public let certificate: Certificate
@@ -184,18 +256,19 @@ public final class Signer {
         self.certificate = certificate
     }
     
-    public func signApp(at appURL: URL, provisioningProfiles profiles: [ProvisioningProfile], completionHandler: @escaping (Bool, Error?) -> Void) -> Progress {
+    public func signApp(at appURL: URL, provisioningProfiles profiles: [ProvisioningProfile], completionHandler: @escaping (Result<Void, SigningError>) -> Void) -> Progress {
         let progress = Progress(totalUnitCount: 1)
         var ipaURL: URL?
         var appBundleURL: URL?
         
-        let finish: (Bool, Error?) -> Void = { success, error in
+        let finish: (Result<Void, SigningError>) -> Void = { result in
             if let ipaURL = ipaURL {
                 try? FileManager.default.removeItem(at: ipaURL.deletingLastPathComponent())
             }
-            completionHandler(success, error)
+            completionHandler(result)
         }
         
+        // Extract IPA if needed
         if appURL.pathExtension.lowercased() == "ipa" {
             ipaURL = appURL
             let outputDirectoryURL = appURL.deletingLastPathComponent().appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -205,7 +278,7 @@ public final class Signer {
                 try Zip.unzipFile(appURL, destination: outputDirectoryURL, overwrite: true, password: nil)
                 appBundleURL = outputDirectoryURL
             } catch {
-                finish(false, NSError(domain: SignErrorDomain, code: ErrorMissingAppBundle, userInfo: [NSUnderlyingErrorKey: error]))
+                finish(.failure(.missingAppBundle(underlyingError: error)))
                 return progress
             }
         } else {
@@ -213,15 +286,13 @@ public final class Signer {
         }
         
         guard let appBundleURL = appBundleURL, let application = Application(fileURL: appBundleURL) else {
-            finish(false, NSError(domain: SignErrorDomain, code: ErrorInvalidApp))
+            finish(.failure(.invalidApp))
             return progress
         }
         
         progress.totalUnitCount = Int64(FileManager.default.subpaths(atPath: appURL.path)?.count ?? 0)
         
         DispatchQueue.global(qos: .default).async {
-            var entitlementsByFileURL = [URL: String]()
-            
             let profileForApp: (Application) -> ProvisioningProfile? = { app in
                 profiles.first { profile in
                     let profileBID = profile.bundleIdentifier
@@ -234,23 +305,29 @@ public final class Signer {
                 }
             }
             
-            let prepareApp: (Application) -> Error? = { app in
+            let prepareApp: (Application) -> SigningError? = { app in
                 guard let profile = profileForApp(app) else {
-                    return NSError(domain: SignErrorDomain, code: ErrorMissingProvisioningProfile)
+                    return .missingProvisioningProfile(bundleIdentifier: app.bundleIdentifier)
                 }
                 
-                try? profile.data.write(to: app.fileURL.appendingPathComponent("embedded.mobileprovision"), options: .atomic)
-                return nil
+                do {
+                    try profile.data.write(to: app.fileURL.appendingPathComponent("embedded.mobileprovision"), options: .atomic)
+                    return nil
+                } catch {
+                    return .fileOperationFailed(error)
+                }
             }
             
             if let error = prepareApp(application) {
-                finish(false, error)
+                finish(.failure(error))
                 return
             }
             
-            for appExtension in application.appExtensions where prepareApp(appExtension) != nil {
-                finish(false, NSError(domain: SignErrorDomain, code: ErrorUnknown))
-                return
+            for appExtension in application.appExtensions {
+                if let error = prepareApp(appExtension) {
+                    finish(.failure(error))
+                    return
+                }
             }
             
             do {
@@ -261,35 +338,38 @@ public final class Signer {
                 guard let profile = profileForApp(application),
                       let provisioningPath = try? saveProvisioningProfile(profile),
                       let privateKey = self.certificate.privateKey else {
-                    finish(false, NSError(domain: SignErrorDomain, code: ErrorUnknown))
+                    finish(.failure(.missingCertificate))
                     return
                 }
                 
                 let privateKeyPath = URL.temporaryDirectory.appendingPathComponent("\(self.certificate.identifier ?? "").pem")
                 try privateKey.write(to: privateKeyPath)
                 
+                // Sign app extensions
                 for appExtension in application.appExtensions {
                     guard let extensionProfile = profileForApp(appExtension),
                           let extensionProvisioningPath = try? saveProvisioningProfile(extensionProfile) else {
-                        finish(false, NSError(domain: SignErrorDomain, code: ErrorMissingProvisioningProfile))
+                        finish(.failure(.missingProvisioningProfile(bundleIdentifier: appExtension.bundleIdentifier)))
                         return
                     }
                     
                     let extensionResult = zsign(appExtension.fileURL.path, p12FilePath.path, privateKeyPath.path, extensionProvisioningPath, "", appExtension.bundleIdentifier, appExtension.name)
                     
                     if extensionResult != 0 {
-                        finish(false, NSError(domain: SignErrorDomain, code: ErrorUnknown, userInfo: [NSLocalizedFailureReasonErrorKey: "Failed to sign app extension: \(appExtension.name)"]))
+                        finish(.failure(.signingFailed(component: "app extension '\(appExtension.name)'", details: "zsign returned code \(extensionResult)")))
                         return
                     }
                 }
                 
+                // Sign main application
                 let result = zsign(appBundleURL.path, p12FilePath.path, privateKeyPath.path, provisioningPath, "", application.bundleIdentifier, application.name)
                 
                 if result != 0 {
-                    finish(false, NSError(domain: SignErrorDomain, code: ErrorUnknown, userInfo: [NSLocalizedFailureReasonErrorKey: "Failed to sign main application"]))
+                    finish(.failure(.signingFailed(component: "main application", details: "zsign returned code \(result)")))
                     return
                 }
                 
+                // Repackage IPA if needed
                 DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + 0.5) {
                     if let ipaURL = ipaURL {
                         do {
@@ -297,16 +377,16 @@ public final class Signer {
                                 try FileManager.default.removeItem(at: ipaURL)
                             }
                             try Zip.zipFiles(paths: [appBundleURL], zipFilePath: appURL, password: nil, progress: nil)
-                            finish(true, nil)
+                            finish(.success(()))
                         } catch {
-                            finish(false, error)
+                            finish(.failure(.fileOperationFailed(error)))
                         }
                     } else {
-                        finish(true, nil)
+                        finish(.success(()))
                     }
                 }
             } catch {
-                finish(false, NSError(domain: SignErrorDomain, code: ErrorUnknown, userInfo: [NSLocalizedFailureReasonErrorKey: error.localizedDescription]))
+                finish(.failure(.unknown(error.localizedDescription)))
             }
         }
         
@@ -314,18 +394,13 @@ public final class Signer {
     }
 }
 
+// MARK: - Helper Functions
+
 func saveProvisioningProfile(_ profile: ProvisioningProfile) throws -> String {
     let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(profile.uuid).mobileprovision")
     try profile.data.write(to: tempURL)
     return tempURL.path
 }
-
-public let SignErrorDomain = "SignErrorDomain"
-public let ErrorMissingAppBundle = 1
-public let ErrorInvalidApp = 2
-public let ErrorMissingProvisioningProfile = 3
-public let ErrorUnknown = 4
-
 extension Data {
     var bytes: [UInt8] {
         return [UInt8](self)
