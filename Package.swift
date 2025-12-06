@@ -17,7 +17,6 @@ let package = Package(
     ],
     dependencies: [
         // .package(url: "https://github.com/stossy11/CoreCrypto-SPM", branch: "master"),
-        .package(url: "https://github.com/attaswift/BigInt.git", from: "5.4.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", "1.0.0" ..< "5.0.0"),
         .package(url: "https://github.com/marmelroy/Zip.git", branch: "master"),
         .package(url: "https://github.com/zwsn/zsign-ios.git", branch: "main"),
@@ -34,7 +33,6 @@ let package = Package(
                 .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "SRP", package: "swift-srp"),
                 .product(name: "Zip", package: "Zip"),
-                .product(name: "BigInt", package: "BigInt"),
                 "StosOpenSSL"
             ]
         ),

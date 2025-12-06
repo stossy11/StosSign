@@ -11,15 +11,6 @@
         }
       },
       {
-        "package": "BigInt",
-        "repositoryURL": "https://github.com/attaswift/BigInt.git",
-        "state": {
-          "branch": null,
-          "revision": "e07e00fa1fd435143a2dcf8b7eec9a7710b2fdfe",
-          "version": "5.7.0"
-        }
-      },
-      {
         "package": "swift-asn1",
         "repositoryURL": "https://github.com/apple/swift-asn1.git",
         "state": {
