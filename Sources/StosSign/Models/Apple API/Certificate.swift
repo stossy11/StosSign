@@ -21,8 +21,21 @@ public final class Certificate {
     public init(name: String, serialNumber: String, data: Data? = nil, privateKey: Data? = nil) {
         self.name = name
         self.serialNumber = serialNumber
-        self.data = data
-        self.privateKey = privateKey
+        
+        if privateKey == nil, let data {
+            let pemData = data.isPEM ? data : data.asPEM()
+            guard let components = Self.parseP12Data(p12Data: pemData ?? Data(), password: "") else {
+                self.data = data
+                self.privateKey = privateKey
+                return
+            }
+            
+            self.privateKey = components.privateKeyPEM
+            self.data = components.certificatePEM
+        } else {
+            self.data = data
+            self.privateKey = privateKey
+        }
     }
     
     public convenience init?(certificateData: Data) {
@@ -42,11 +55,11 @@ public final class Certificate {
     }
     
     public convenience init?(p12Data: Data, password: String? = nil) {
-        guard let components = Self.extractFromP12(p12Data, password: password ?? "") else {
+        guard let components = Self.parseP12Data(p12Data: p12Data, password: password ?? "") else {
             return nil
         }
         
-        guard let certificate = Certificate(certificateData: components.certificate) else {
+        guard let certificate = Certificate(certificateData: components.certificatePEM) else {
             return nil
         }
         
@@ -54,7 +67,7 @@ public final class Certificate {
             name: certificate.name,
             serialNumber: certificate.serialNumber,
             data: certificate.data,
-            privateKey: components.privateKey
+            privateKey: components.privateKeyPEM
         )
     }
     
@@ -131,46 +144,6 @@ public final class Certificate {
         }
         
         return (String(cString: namePointer), String(cString: serialPointer))
-    }
-    
-    private static func extractFromP12(_ p12Data: Data, password: String) -> (certificate: Data, privateKey: Data)? {
-        var certificatePointer: UnsafeMutablePointer<UInt8>?
-        var certificateLength: size_t = 0
-        var keyPointer: UnsafeMutablePointer<UInt8>?
-        var keyLength: size_t = 0
-        
-        let success = p12Data.withUnsafeBytes { buffer in
-            guard let base = buffer.baseAddress else { return false }
-            return parse_p12_data(
-                base.assumingMemoryBound(to: UInt8.self),
-                Int32(p12Data.count),
-                password.cString(using: .utf8),
-                &certificatePointer,
-                &certificateLength,
-                &keyPointer,
-                &keyLength
-            )
-        }
-        
-        guard success,
-              let certPointer = certificatePointer,
-              certificateLength > 0,
-              let privKeyPointer = keyPointer,
-              keyLength > 0 else {
-            certificatePointer.map { free($0) }
-            keyPointer.map { free($0) }
-            return nil
-        }
-        
-        defer {
-            free(certificatePointer)
-            free(keyPointer)
-        }
-        
-        let certificate = Data(bytes: certPointer, count: certificateLength)
-        let privateKey = Data(bytes: privKeyPointer, count: keyLength)
-        
-        return (certificate, privateKey)
     }
     
     private static func createP12(certificate: Data, privateKey: Data, password: String) -> Data? {
