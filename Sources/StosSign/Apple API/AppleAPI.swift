@@ -235,7 +235,7 @@ public final class AppleAPI {
         request.httpMethod = "DELETE"
         
         let responseDictionary = try await sendServicesRequest(originalRequest: request, additionalParameters: nil, session: session, team: team)
-        return responseDictionary != nil
+        return !responseDictionary.isEmpty
     }
     
     public func fetchAppIDsForTeam(team: Team, session: AppleAPISession) async throws -> [AppID] {
@@ -450,6 +450,52 @@ public final class AppleAPI {
         throw AppleAPIError.badServerResponse
     }
     
+    public func addCapabilies(_ capabilities: [String], appID: AppID, team: Team, session: AppleAPISession) async throws -> Bool {
+        let bundleIdCapabilitiesData: [[String: Any]] = capabilities.map { capability in
+            [
+                "relationships": [
+                    "capability": [
+                        "data": [
+                            "id": capability,
+                            "type": "capabilities"
+                        ]
+                    ]
+                ],
+                "type": "bundleIdCapabilities",
+                "attributes": [
+                    "settings": [],
+                    "enabled": true
+                ]
+            ]
+        }
+
+        
+        let dict: [String: Any] = [
+            "data": [
+                "relationships": [
+                    "bundleIdCapabilities": [
+                        "data": bundleIdCapabilitiesData
+                    ]
+                ],
+                "id": appID.identifier,
+                "attributes": [
+                    "hasExclusiveManagedCapabilities": false,
+                    "teamId": team.identifier,
+                    "bundleType": "bundle",
+                    "identifier": appID.bundleIdentifier,
+                    "seedId": team.identifier,
+                    "name": appID.name
+                ],
+                "type": "bundleIds"
+            ]
+        ]
+
+        let result = try await self.sendEditRequest(requestURL: v1URL.appendingPathComponent("bundleIds/\(appID.identifier)"), body: dict, session: session)
+        
+        return !result.isEmpty
+    }
+    
+    
     public func fetchProvisioningProfileForAppID(appID: AppID, deviceType: DeviceType, team: Team, session: AppleAPISession) async throws -> ProvisioningProfile {
         let url = qhURL.appendingPathComponent("ios/downloadTeamProvisioningProfile.action")
         
@@ -569,6 +615,54 @@ public final class AppleAPI {
         
         return responseDictionary
     }
+    
+    public func sendEditRequest(requestURL: URL, body: [String: Any], session: AppleAPISession) async throws -> [String : Any] {
+        let bodyData = try PropertyListSerialization.data(fromPropertyList: body, format: .xml, options: 0)
+        
+        var urlString = requestURL.absoluteString
+        urlString.append("?clientId=\(clientID)")
+        guard let url = URL(string: urlString) else {
+            throw AppleAPIError.invalidParameters
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.httpBody = bodyData
+        
+        let httpHeaders: [String: String] = [
+            "Content-Type": "text/x-xml-plist",
+            "User-Agent": "Xcode",
+            "Accept": "text/x-xml-plist",
+            "Accept-Language": "en-us",
+            "X-Apple-App-Info": "com.apple.gs.xcode.auth",
+            "X-Xcode-Version": "11.2 (11B41)",
+            "X-Apple-I-Identity-Id": session.dsid,
+            "X-Apple-GS-Token": session.authToken,
+            "X-Apple-I-MD-M": session.anisetteData.machineID,
+            "X-Apple-I-MD": session.anisetteData.oneTimePassword,
+            "X-Apple-I-MD-LU": session.anisetteData.localUserID,
+            "X-Apple-I-MD-RINFO": "\(session.anisetteData.routingInfo)",
+            "X-Mme-Device-Id": session.anisetteData.deviceUniqueIdentifier,
+            "X-MMe-Client-Info": session.anisetteData.deviceDescription,
+            "X-Apple-I-Client-Time": dateFormatter.string(from: session.anisetteData.date),
+            "X-Apple-Locale": session.anisetteData.locale.identifier,
+            "X-Apple-I-Locale": session.anisetteData.locale.identifier,
+            "X-Apple-I-TimeZone": session.anisetteData.timeZone.abbreviation() ?? "GMT"
+        ]
+        
+        for (key, value) in httpHeaders {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        
+        let (data, _) = try await self.session.data(for: request)
+        
+        guard let responseDictionary = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] else {
+            throw AppleAPIError.badServerResponse
+        }
+        
+        return responseDictionary
+    }
+    
     
     public func sendRequestWithURL(requestURL: URL, additionalParameters: [String: String]?, session: AppleAPISession, team: Team?) async throws -> [String : Any] {
         var parameters: [String: String] = [
