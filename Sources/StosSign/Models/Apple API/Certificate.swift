@@ -184,8 +184,18 @@ public final class Certificate {
             return data
         }
         
-        if let encoded = attributes["certificateContent"] as? String {
-            return Data(base64Encoded: encoded)
+        if let data = attributes["certificateContent"] as? Data {
+            return data
+        }
+        
+        if let encoded = attributes["certContent"] as? String,
+           let decoded = Data(base64Encoded: encoded) {
+            return decoded
+        }
+        
+        if let encoded = attributes["certificateContent"] as? String,
+           let decoded = Data(base64Encoded: encoded) {
+            return decoded
         }
         
         return nil
