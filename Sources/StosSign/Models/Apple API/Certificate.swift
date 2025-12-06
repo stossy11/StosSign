@@ -26,8 +26,7 @@ public final class Certificate {
         self.machineIdentifier = machineIdentifier
         
         if privateKey == nil, let data {
-            let pemData = data.isPEM ? data : data.asPEM()
-            guard let components = Self.parseP12Data(p12Data: pemData ?? Data(), password: "") else {
+            guard let components = Self.parseP12Data(p12Data: data, password: "") else {
                 self.data = data
                 self.privateKey = privateKey
                 return
@@ -42,13 +41,16 @@ public final class Certificate {
     }
     
     public convenience init?(certificateData: Data) {
-        let pemData = certificateData.isPEM ? certificateData : certificateData.asPEM()
-        guard let pemData else { return nil }
+        let pemData = certificateData
         
-        guard let parsed = Self.parse(pemData) else { return nil }
-        
+        guard let parsed = Self.parse(pemData) else {
+            return nil
+        }
+
         let trimmedSerial = parsed.serial.drop(while: { $0 == "0" })
-        guard !trimmedSerial.isEmpty else { return nil }
+        guard !trimmedSerial.isEmpty else {
+            return nil
+        }
         
         self.init(
             name: parsed.name,
@@ -78,6 +80,7 @@ public final class Certificate {
         let attributes = response["attributes"] as? [String: Any] ?? response
         
         let certificateData = Self.extractCertificateData(from: attributes)
+        
         let machineName = Self.extractString(attributes["machineName"])
         let machineIdentifier = Self.extractString(attributes["machineId"])
         let identifier = Self.extractString(response["id"])
@@ -183,19 +186,17 @@ public final class Certificate {
         if let data = attributes["certContent"] as? Data {
             return data
         }
-        
-        if let data = attributes["certificateContent"] as? Data {
-            return data
+    
+        if let encoded = attributes["certContent"] as? String {
+            if let decoded = Data(base64Encoded: encoded) {
+                return decoded
+            }
         }
         
-        if let encoded = attributes["certContent"] as? String,
-           let decoded = Data(base64Encoded: encoded) {
-            return decoded
-        }
-        
-        if let encoded = attributes["certificateContent"] as? String,
-           let decoded = Data(base64Encoded: encoded) {
-            return decoded
+        if let encoded = attributes["certificateContent"] as? String {
+            if let decoded = Data(base64Encoded: encoded) {
+                return decoded
+            }
         }
         
         return nil
@@ -238,12 +239,5 @@ extension Data {
     var isPEM: Bool {
         guard let string = String(data: self, encoding: .utf8) else { return false }
         return string.hasPrefix("-----BEGIN CERTIFICATE-----")
-    }
-    
-    func asPEM() -> Data? {
-        guard !isPEM else { return self }
-        let base64 = base64EncodedString(options: .lineLength64Characters)
-        let pem = "-----BEGIN CERTIFICATE-----\n\(base64)\n-----END CERTIFICATE-----"
-        return pem.data(using: .utf8)
     }
 }
