@@ -18,9 +18,12 @@ public final class Certificate {
     public var machineIdentifier: String?
     public var identifier: String?
     
-    public init(name: String, serialNumber: String, data: Data? = nil, privateKey: Data? = nil) {
+    public init(name: String, serialNumber: String, identifier: String? = nil, machineName: String? = nil, machineIdentifier: String? = nil, data: Data? = nil, privateKey: Data? = nil) {
         self.name = name
         self.serialNumber = serialNumber
+        self.identifier = identifier
+        self.machineName = machineName
+        self.machineIdentifier = machineIdentifier
         
         if privateKey == nil, let data {
             let pemData = data.isPEM ? data : data.asPEM()
