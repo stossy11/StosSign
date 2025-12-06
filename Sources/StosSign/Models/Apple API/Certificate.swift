@@ -77,7 +77,7 @@ public final class Certificate {
         let certificateData = Self.extractCertificateData(from: attributes)
         let machineName = Self.extractString(attributes["machineName"])
         let machineIdentifier = Self.extractString(attributes["machineId"])
-        let identifier = Self.extractString(response["responseId"]) // seems to be responseId instead of id like AltSign had :shrug:
+        let identifier = Self.extractString(response["id"])
         
         if let data = certificateData, let certificate = Certificate(certificateData: data) {
             self.init(
