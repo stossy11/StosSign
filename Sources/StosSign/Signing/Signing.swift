@@ -221,19 +221,19 @@ public final class Signer {
         
         progress.totalUnitCount = Int64(FileManager.default.subpaths(atPath: appURL.path)?.count ?? 0)
         
-        DispatchQueue.global(qos: .default).async {
-            let profileForApp: (Application) -> ProvisioningProfile? = { app in
-                profiles.first { profile in
-                    let profileBID = profile.bundleIdentifier
-                    let appBID = app.bundleIdentifier
-
-                    let profilePrefix = profileBID?.split(separator: ".").dropLast().joined(separator: ".")
-                    let appPrefix = appBID.split(separator: ".").dropLast().joined(separator: ".")
-
-                    return profilePrefix == appPrefix
-                }
+        let profileForApp: (Application) -> ProvisioningProfile? = { app in
+            profiles.first { profile in
+                let profileBID = profile.bundleIdentifier
+                let appBID = app.bundleIdentifier
+                
+                let profilePrefix = profileBID?.split(separator: ".").dropLast().joined(separator: ".")
+                let appPrefix = appBID.split(separator: ".").dropLast().joined(separator: ".")
+                
+                return profilePrefix == appPrefix
             }
-            
+        }
+        
+        Task {
             let prepareApp: (Application) -> SigningError? = { app in
                 guard let profile = profileForApp(app) else {
                     return .missingProvisioningProfile(bundleIdentifier: app.bundleIdentifier)
@@ -283,7 +283,7 @@ public final class Signer {
                     
                     let extensionProvisioningPath = try saveProvisioningProfile(extensionProfile)
                     
-                    let success = Zsign.sign(
+                    try await Zsign.signAsync(
                         appPath: appExtension.fileURL.path,
                         provisionPath: extensionProvisioningPath,
                         p12Path: p12FilePath.path,
@@ -292,13 +292,9 @@ public final class Signer {
                         customName: appExtension.name
                     )
                     
-                    if !success {
-                        finish(.failure(.signingFailed(component: "app extension '\(appExtension.name)'", details: nil)))
-                        return
-                    }
                 }
                 
-                let success = Zsign.sign(
+                try await Zsign.signAsync(
                     appPath: appBundleURL.path,
                     provisionPath: provisioningPath,
                     p12Path: p12FilePath.path,
@@ -307,10 +303,6 @@ public final class Signer {
                     customName: application.name
                 )
                 
-                if !success {
-                    finish(.failure(.signingFailed(component: "main application", details: nil)))
-                    return
-                }
                 
                 DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + 0.5) {
                     if let ipaURL = ipaURL {
@@ -361,5 +353,39 @@ extension URL {
     static var temporaryDirectory: URL {
         let documentDirectory = FileManager.default.temporaryDirectory
         return documentDirectory
+    }
+}
+
+extension Zsign {
+    static func signAsync(
+        appPath: String,
+        provisionPath: String,
+        p12Path: String,
+        p12Password: String,
+        customIdentifier: String,
+        customName: String
+    ) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            _ = Zsign.sign(
+                appPath: appPath,
+                provisionPath: provisionPath,
+                p12Path: p12Path,
+                p12Password: p12Password,
+                customIdentifier: customIdentifier,
+                customName: customName
+            ) { success, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if success {
+                    continuation.resume(returning: ())
+                } else {
+                    continuation.resume(throwing: NSError(
+                        domain: "Zsign",
+                        code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "Signing failed"]
+                    ))
+                }
+            }
+        }
     }
 }
