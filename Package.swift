@@ -19,8 +19,9 @@ let package = Package(
         // .package(url: "https://github.com/stossy11/CoreCrypto-SPM", branch: "master"),
         .package(url: "https://github.com/apple/swift-crypto.git", "1.0.0" ..< "5.0.0"),
         .package(url: "https://github.com/marmelroy/Zip.git", branch: "master"),
-        .package(url: "https://github.com/zwsn/zsign-ios.git", branch: "main"),
-        .package(url: "https://github.com/adam-fowler/swift-srp.git", revision: "ce202c48f8ca68f44b71732f945eb8221d6fe135")
+        .package(url: "https://github.com/khcrysalis/Zsign-Package", branch: "package"),
+        .package(url: "https://github.com/adam-fowler/swift-srp.git", revision: "ce202c48f8ca68f44b71732f945eb8221d6fe135"),
+        .package(url: "https://github.com/krzyzanowskim/OpenSSL", from: "3.3.3001")
         //https://github.com/marmelroy/Zip
     ],
     targets: [
@@ -29,17 +30,18 @@ let package = Package(
         .target(
             name: "StosSign",
             dependencies: [
-                .product(name: "ZSignApple", package: "zsign-ios"),
+                .product(name: "ZsignSwift", package: "Zsign-Package"),
                 .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "SRP", package: "swift-srp"),
                 .product(name: "Zip", package: "Zip"),
+                .product(name: "OpenSSL", package: "OpenSSL"),
                 "StosOpenSSL"
             ]
         ),
         .target(
             name: "StosOpenSSL",
             dependencies: [
-                .product(name: "ZSignApple", package: "zsign-ios")
+                .product(name: "OpenSSL", package: "OpenSSL"),
             ],
             path: "Sources/Dependencies/Modules/OpenSSL"
         ),

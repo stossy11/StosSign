@@ -260,7 +260,6 @@ public final class AppleAPI {
     public func addAppID(name: String, bundleIdentifier: String, team: Team, session: AppleAPISession) async throws -> AppID {
         let url = qhURL.appendingPathComponent("ios/addAppId.action")
         
-        // Sanitize name similar to ObjC implementation
         var sanitizedName = name.folding(options: .diacriticInsensitive, locale: nil)
         sanitizedName = sanitizedName.components(separatedBy: CharacterSet.alphanumerics.union(.whitespaces).inverted).joined()
         

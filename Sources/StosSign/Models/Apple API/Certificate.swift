@@ -17,13 +17,15 @@ public final class Certificate {
     public var machineName: String?
     public var machineIdentifier: String?
     public var identifier: String?
+    public var expirationDate: Date?
     
-    public init(name: String, serialNumber: String, identifier: String? = nil, machineName: String? = nil, machineIdentifier: String? = nil, data: Data? = nil, privateKey: Data? = nil) {
+    public init(name: String, serialNumber: String, expirationDate: Date? = nil, identifier: String? = nil, machineName: String? = nil, machineIdentifier: String? = nil, data: Data? = nil, privateKey: Data? = nil) {
         self.name = name
         self.serialNumber = serialNumber
         self.identifier = identifier
         self.machineName = machineName
         self.machineIdentifier = machineIdentifier
+        self.expirationDate = expirationDate
         
         if privateKey == nil, let data {
             guard let components = Self.parseP12Data(p12Data: data, password: "") else {
@@ -86,6 +88,8 @@ public final class Certificate {
         let identifier2 = Self.extractString(response["id"])
         let identifier = identifier2 ?? Self.extractString(attributes["certificateId"])
         
+        
+        
         if let data = certificateData, let certificate = Certificate(certificateData: data) {
             self.init(
                 name: certificate.name,
@@ -97,6 +101,15 @@ public final class Certificate {
             let serial = Self.extractString(attributes["serialNumber"]) ??
                         Self.extractString(attributes["serialNum"]) ?? ""
             self.init(name: name, serialNumber: serial, data: nil)
+        }
+        
+        if let expirationDate = Self.extractString(attributes["expirationDate"])  {
+            let dateFormatter = DateFormatter()
+            dateFormatter.locale = Locale(identifier: "en_US_POSIX") // set locale to reliable US_POSIX
+            dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+            let date = dateFormatter.date(from: expirationDate)
+            
+            self.expirationDate = date
         }
         
         self.machineName = machineName

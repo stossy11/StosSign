@@ -7,7 +7,7 @@
 
 import Foundation
 import StosOpenSSL
-import ZSign
+import ZsignSwift
 import Zip
 
 typealias EVP_PKEY = OpaquePointer
@@ -100,77 +100,6 @@ TecmmYHpvPm0KdIBembhLoz2IYrF+Hjhga6/05Cdqa3zr/04GpZnMBxRpVzscYqC
 tGwPDBUf
 -----END CERTIFICATE-----
 """
-
-
-func CertificatesContent(certificate: Certificate) -> Data {
-    let certificateP12Data = certificate.p12Data
-    
-    let inputP12Buffer = BIO_new(BIO_s_mem())
-    BIO_write(inputP12Buffer, certificateP12Data.bytes, Int32(certificateP12Data!.count))
-    
-    let inputP12 = d2i_PKCS12_bio(inputP12Buffer, nil)
-    
-    // Extract key + certificate from .p12
-    var key: EVP_PKEY?
-    var certificate: X509?
-    PKCS12_parse(inputP12, "", &key, &certificate, nil)
-    
-    // Prepare certificate chain of trust
-    let certificates = sk_X509_new(nil)
-    
-    let rootCertificateBuffer = BIO_new_mem_buf(AppleRootCertificateData, Int32(strlen(AppleRootCertificateData)))
-    var wwdrCertificateBuffer: BIO?
-    
-    let issuerHash = X509_issuer_name_hash(certificate)
-    if issuerHash == 0x817d2f7a {
-        // Use legacy WWDR certificate
-        wwdrCertificateBuffer = BIO_new_mem_buf(LegacyAppleWWDRCertificateData, Int32(strlen(LegacyAppleWWDRCertificateData)))
-    } else {
-        // Use latest WWDR certificate
-        wwdrCertificateBuffer = BIO_new_mem_buf(AppleWWDRCertificateData, Int32(strlen(AppleWWDRCertificateData)))
-    }
-    
-    let rootCertificate = PEM_read_bio_X509(rootCertificateBuffer, nil, nil, nil)
-    if rootCertificate != nil {
-        sk_X509_push(certificates, rootCertificate)
-    }
-    
-    let wwdrCertificate = PEM_read_bio_X509(wwdrCertificateBuffer, nil, nil, nil)
-    if wwdrCertificate != nil {
-        sk_X509_push(certificates, wwdrCertificate)
-    }
-    
-    // Create new .p12 in memory with private key and certificate chain
-    var emptyCString = strdup("")
-    defer { free(emptyCString) }
-    let outputP12 = PKCS12_create(&emptyCString, &emptyCString, key, certificate, certificates, 0, 0, 0, 0, 0)
-    
-    let outputP12Buffer = BIO_new(BIO_s_mem())
-    i2d_PKCS12_bio(outputP12Buffer, outputP12)
-    
-    var buffer: UnsafePointer<UInt8>? = nil
-    let size = BIO_get_mem_ptr_bridge(outputP12Buffer, &buffer)
-
-    if size > 0 && buffer != nil {
-        let p12Data = Data(bytes: buffer!, count: Int(size))
-    } else {
-        // Handle error
-        let p12Data = Data()
-    }
-    
-    PKCS12_free(inputP12)
-    PKCS12_free(outputP12)
-    
-    BIO_free(wwdrCertificateBuffer)
-    BIO_free(rootCertificateBuffer)
-    
-    BIO_free(inputP12Buffer)
-    BIO_free(outputP12Buffer)
-    
-    return Data()
-}
-
-
 
 
 public enum SigningError: LocalizedError {
@@ -331,45 +260,58 @@ public final class Signer {
             }
             
             do {
-                let key = CertificatesContent(certificate: self.certificate)
-                let p12FilePath = URL.temporaryDirectory.appendingPathComponent("certificate.p12")
-                try key.write(to: p12FilePath)
-                
-                guard let profile = profileForApp(application),
-                      let provisioningPath = try? saveProvisioningProfile(profile),
-                      let privateKey = self.certificate.privateKey else {
+                guard let p12Data = self.certificate.p12Data else {
                     finish(.failure(.missingCertificate))
                     return
                 }
                 
-                let privateKeyPath = URL.temporaryDirectory.appendingPathComponent("\(self.certificate.identifier ?? "").pem")
-                try privateKey.write(to: privateKeyPath)
+                let p12FilePath = FileManager.default.temporaryDirectory.appendingPathComponent("certificate.p12")
+                try p12Data.write(to: p12FilePath)
                 
-                // Sign app extensions
+                guard let profile = profileForApp(application) else {
+                    finish(.failure(.missingProvisioningProfile(bundleIdentifier: application.bundleIdentifier)))
+                    return
+                }
+                
+                let provisioningPath = try saveProvisioningProfile(profile)
+                
                 for appExtension in application.appExtensions {
-                    guard let extensionProfile = profileForApp(appExtension),
-                          let extensionProvisioningPath = try? saveProvisioningProfile(extensionProfile) else {
+                    guard let extensionProfile = profileForApp(appExtension) else {
                         finish(.failure(.missingProvisioningProfile(bundleIdentifier: appExtension.bundleIdentifier)))
                         return
                     }
                     
-                    let extensionResult = zsign(appExtension.fileURL.path, p12FilePath.path, privateKeyPath.path, extensionProvisioningPath, "", appExtension.bundleIdentifier, appExtension.name)
+                    let extensionProvisioningPath = try saveProvisioningProfile(extensionProfile)
                     
-                    if extensionResult != 0 {
-                        finish(.failure(.signingFailed(component: "app extension '\(appExtension.name)'", details: "zsign returned code \(extensionResult)")))
+                    let success = Zsign.sign(
+                        appPath: appExtension.fileURL.path,
+                        provisionPath: extensionProvisioningPath,
+                        p12Path: p12FilePath.path,
+                        p12Password: "",
+                        customIdentifier: appExtension.bundleIdentifier,
+                        customName: appExtension.name
+                    )
+                    
+                    if !success {
+                        finish(.failure(.signingFailed(component: "app extension '\(appExtension.name)'", details: nil)))
                         return
                     }
                 }
                 
-                // Sign main application
-                let result = zsign(appBundleURL.path, p12FilePath.path, privateKeyPath.path, provisioningPath, "", application.bundleIdentifier, application.name)
+                let success = Zsign.sign(
+                    appPath: appBundleURL.path,
+                    provisionPath: provisioningPath,
+                    p12Path: p12FilePath.path,
+                    p12Password: "",
+                    customIdentifier: application.bundleIdentifier,
+                    customName: application.name
+                )
                 
-                if result != 0 {
-                    finish(.failure(.signingFailed(component: "main application", details: "zsign returned code \(result)")))
+                if !success {
+                    finish(.failure(.signingFailed(component: "main application", details: nil)))
                     return
                 }
                 
-                // Repackage IPA if needed
                 DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + 0.5) {
                     if let ipaURL = ipaURL {
                         do {
@@ -393,6 +335,7 @@ public final class Signer {
         return progress
     }
 }
+
 
 // MARK: - Helper Functions
 
