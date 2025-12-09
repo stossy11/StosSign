@@ -226,16 +226,13 @@ public final class Signer {
                 let profileBID = profile.bundleIdentifier
                 let appBID = app.bundleIdentifier
                 
-                let profilePrefix = profileBID?.split(separator: ".").dropLast().joined(separator: ".")
-                let appPrefix = appBID.split(separator: ".").dropLast().joined(separator: ".")
-                
-                return profilePrefix == appPrefix
+                return appBID == profileBID
             }
         }
         
         Task {
             let prepareApp: (Application) -> SigningError? = { app in
-                guard let profile = profileForApp(app) else {
+                guard let profile = profileForApp(app) ?? profileForApp(application) else {
                     return .missingProvisioningProfile(bundleIdentifier: app.bundleIdentifier)
                 }
                 
@@ -276,7 +273,7 @@ public final class Signer {
                 let provisioningPath = try saveProvisioningProfile(profile)
                 
                 for appExtension in application.appExtensions {
-                    guard let extensionProfile = profileForApp(appExtension) else {
+                    guard let extensionProfile = profileForApp(appExtension) ?? profileForApp(application) else {
                         finish(.failure(.missingProvisioningProfile(bundleIdentifier: appExtension.bundleIdentifier)))
                         return
                     }
