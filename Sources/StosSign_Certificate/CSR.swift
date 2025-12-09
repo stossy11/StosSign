@@ -7,8 +7,10 @@
 
 // I had to do this in a new target because Certificate from swift-certificates (aka X509) was clashing with Certificate from StosSign
 import Foundation
+import SwiftASN1
 import X509
 import CryptoKit
+import _CryptoExtras
 
 public class CSR {
     public static func generateCSR() throws -> (data: Data?, pkey: Data?) {
@@ -20,7 +22,7 @@ public class CSR {
             .init(type: .NameAttributes.localityName, utf8String: "Los Angeles"),
         ])
         
-        let privateKey = P256.Signing.PrivateKey()
+        let privateKey = try _RSA.Signing.PrivateKey(keySize: .bits2048)
         
         let privateKeyCertificate = Certificate.PrivateKey(privateKey)
         let extensions = try Certificate.Extensions {
@@ -30,7 +32,7 @@ public class CSR {
         let attributes = try CertificateSigningRequest.Attributes(
             [.init(extensionRequest)]
         )
-        let csr = try CertificateSigningRequest(version: .v1, subject: subject, privateKey: privateKeyCertificate, attributes: attributes, signatureAlgorithm: .ecdsaWithSHA256)
+        let csr = try CertificateSigningRequest(version: .v1, subject: subject, privateKey: privateKeyCertificate, attributes: attributes, signatureAlgorithm: .sha256WithRSAEncryption)
         
         if !csr.publicKey.isValidSignature(csr.signature, for: csr) {
             throw NSError(domain: "StosSign_CSR", code: 1)
