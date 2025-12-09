@@ -44,11 +44,11 @@ public final class Certificate {
     }
     
     public convenience init?(certificateData: Data) {
-        let pemData = certificateData
-        
-        guard let parsed = Self.parse(pemData) else {
+        guard let pemData = certificateData.isPEM ? Data(base64Encoded: String(data: certificateData, encoding: .utf8)!.replacingOccurrences(of: "-----BEGIN CERTIFICATE-----\n", with: "").replacingOccurrences(of: "\n-----END CERTIFICATE-----", with: "")) : certificateData,
+            let parsed = Self.parse(pemData) else {
             return nil
         }
+        
 
         let trimmedSerial = parsed.serial.drop(while: { $0 == "0" })
         guard !trimmedSerial.isEmpty else {
