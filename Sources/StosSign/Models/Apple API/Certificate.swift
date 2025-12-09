@@ -7,6 +7,7 @@
 
 import Foundation
 import StosOpenSSL
+import StosSign_Certificate
 
 public final class Certificate {
     public let name: String
@@ -135,6 +136,8 @@ public final class Certificate {
     }
     
     private static func parse(_ pemData: Data) -> (name: String, serial: String)? {
+        _ = CertificateParser.parseCerts(pemData)
+        
         var name: UnsafeMutablePointer<CChar>?
         var nameLength: size_t = 0
         var serial: UnsafeMutablePointer<CChar>?

@@ -1,59 +1,11 @@
 //
-//  OpenSSL-Bridging.m
+//  OpenSSL-Bridging.c
 //  StosSign
 //
 //  Created by Stossy11 on 18/03/2025.
 //
 
 #include "OpenSSL-Bridge.h"
-
-bool parse_p12_data(const unsigned char *p12Data, int p12DataLength,
-                   const char *password,
-                   unsigned char **outCertData, size_t *outCertDataLength,
-                   unsigned char **outPrivateKeyData, size_t *outPrivateKeyLength) {
-    BIO *inputP12Buffer = BIO_new_mem_buf((const void *)p12Data, p12DataLength);
-    PKCS12 *inputP12 = d2i_PKCS12_bio(inputP12Buffer, NULL);
-    BIO_free(inputP12Buffer);
-    
-    if (inputP12 == NULL) {
-        return false;
-    }
-
-    EVP_PKEY *key = NULL;
-    X509 *certificate = NULL;
-    PKCS12_parse(inputP12, password, &key, &certificate, NULL);
-    PKCS12_free(inputP12);
-
-    if (key == NULL || certificate == NULL) {
-        if (key) EVP_PKEY_free(key);
-        if (certificate) X509_free(certificate);
-        return false;
-    }
-
-    BIO *pemBuffer = BIO_new(BIO_s_mem());
-    PEM_write_bio_X509(pemBuffer, certificate);
-
-    BIO *privateKeyBuffer = BIO_new(BIO_s_mem());
-    PEM_write_bio_PrivateKey(privateKeyBuffer, key, NULL, NULL, 0, NULL, NULL);
-
-    char *pemBytes = NULL;
-    *outCertDataLength = BIO_get_mem_data(pemBuffer, &pemBytes);
-    *outCertData = (unsigned char *)malloc(*outCertDataLength);
-    memcpy(*outCertData, pemBytes, *outCertDataLength);
-
-    char *privateKeyBytes = NULL;
-    *outPrivateKeyLength = BIO_get_mem_data(privateKeyBuffer, &privateKeyBytes);
-    *outPrivateKeyData = (unsigned char *)malloc(*outPrivateKeyLength);
-    memcpy(*outPrivateKeyData, privateKeyBytes, *outPrivateKeyLength);
-
-    EVP_PKEY_free(key);
-    X509_free(certificate);
-    BIO_free(pemBuffer);
-    BIO_free(privateKeyBuffer);
-
-    return true;
-}
-
 
 bool parse_certificate_data(const unsigned char *derData, int derDataLength,
                             char **outName, size_t *outNameLength,

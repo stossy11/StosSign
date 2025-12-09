@@ -7,7 +7,6 @@
 
 // I had to do this in a new target because Certificate from swift-certificates (aka X509) was clashing with Certificate from StosSign
 import Foundation
-import SwiftASN1
 import X509
 import CryptoKit
 

@@ -13,7 +13,7 @@ let package = Package(
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
             name: "StosSign",
-            targets: ["StosOpenSSL", "StosSign", "StosSign_CSR"]),
+            targets: ["StosOpenSSL", "StosSign", "StosSign_Certificate"]),
     ],
     dependencies: [
         // .package(url: "https://github.com/stossy11/CoreCrypto-SPM", branch: "master"),
@@ -38,11 +38,11 @@ let package = Package(
                 .product(name: "OpenSSL", package: "OpenSSL"),
                 .product(name: "X509", package: "swift-certificates"),
                 "StosOpenSSL",
-                "StosSign_CSR"
+                "StosSign_Certificate"
             ]
         ),
         .target(
-            name: "StosSign_CSR",
+            name: "StosSign_Certificate",
             dependencies: [
                 .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "SRP", package: "swift-srp"),
