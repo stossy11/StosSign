@@ -38,9 +38,9 @@ public class CSR {
             throw NSError(domain: "StosSign_CSR", code: 1)
         }
         
-        let csrBytex = try csr.serializeAsPEM(discriminator: CertificateSigningRequest.defaultPEMDiscriminator).pemString
+        let csrBytex = try csr.serializeAsPEM(discriminator: CertificateSigningRequest.defaultPEMDiscriminator).derBytes
         
-        let csrData = csrBytex.data(using: .utf8)
+        let csrData = Data(csrBytex)
         
         return (data: csrData, pkey: privateKey.pemRepresentation.data(using: .utf8))
     }
