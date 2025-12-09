@@ -135,38 +135,8 @@ public final class Certificate {
         )
     }
     
-    private static func parse(_ pemData: Data) -> (name: String, serial: String)? {
-        _ = CertificateParser.parseCerts(pemData)
-        
-        var name: UnsafeMutablePointer<CChar>?
-        var nameLength: size_t = 0
-        var serial: UnsafeMutablePointer<CChar>?
-        var serialLength: size_t = 0
-        
-        let success = pemData.withUnsafeBytes { buffer in
-            guard let base = buffer.baseAddress else { return false }
-            return parse_certificate_data(
-                base.assumingMemoryBound(to: UInt8.self),
-                Int32(pemData.count),
-                &name,
-                &nameLength,
-                &serial,
-                &serialLength
-            )
-        }
-        
-        guard success,
-              let namePointer = name,
-              let serialPointer = serial else {
-            return nil
-        }
-        
-        defer {
-            free(name)
-            free(serial)
-        }
-        
-        return (String(cString: namePointer), String(cString: serialPointer))
+    private static func parse(_ pemData: Data) -> (name: String, serial: String)? {        
+        return CertificateParser.parseCerts(pemData)
     }
     
     private static func createP12(certificate: Data, privateKey: Data, password: String) -> Data? {

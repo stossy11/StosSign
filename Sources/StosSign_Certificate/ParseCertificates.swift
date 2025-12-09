@@ -15,11 +15,9 @@ public class CertificateParser {
             let bytes = [UInt8](cert)
             let certificate = try Certificate(derEncoded: bytes)
             let serial = String(data: Data(certificate.serialNumber.bytes), encoding: .utf8) ?? ""
-            for name in certificate.subject {
-                print(name)
-            }
+            let name = String(describing: certificate.subject[1])
             
-            return ("", serial)
+            return (name, serial)
         } catch {
             return nil
         }
