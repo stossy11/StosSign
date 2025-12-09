@@ -45,10 +45,6 @@ bool create_p12_data(const unsigned char *certData, int certDataLength,
                     const char *password,
                     unsigned char **outP12Data, size_t *outP12DataLength);
 
-
-int generate_certificate_request(unsigned char **outputRequest, long *requestLength,
-                                 unsigned char **outputPrivateKey, long *privateKeyLength);
-
 #ifdef __cplusplus
 }
 #endif
