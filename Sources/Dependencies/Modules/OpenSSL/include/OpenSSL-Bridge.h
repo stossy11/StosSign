@@ -25,16 +25,6 @@
 extern "C" {
 #endif
 
-static inline long BIO_get_mem_ptr_bridge(BIO *bio, const unsigned char **pp) {
-    return BIO_get_mem_ptr(bio, pp); //BIO_get_mem_data(bio, pp);
-}
-
-
-bool parse_certificate_data(const unsigned char *pemData, int pemDataLength,
-                          char **outName, size_t *outNameLength,
-                          char **outSerialNumber, size_t *outSerialNumberLength);
-
-
 bool create_p12_data(const unsigned char *certData, int certDataLength,
                     const unsigned char *privateKeyData, int privateKeyDataLength,
                     const char *password,
