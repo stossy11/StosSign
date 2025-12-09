@@ -185,16 +185,15 @@ public final class Signer {
         self.certificate = certificate
     }
     
-    public func signApp(at appURL: URL, originalBID: String = "", provisioningProfiles profiles: [ProvisioningProfile], completionHandler: @escaping (Result<Void, SigningError>) -> Void) -> Progress {
+    public func signApp(at appURL: URL, originalBID: String = "", provisioningProfiles profiles: [ProvisioningProfile]) async throws  {
         let progress = Progress(totalUnitCount: 1)
         var ipaURL: URL?
         var appBundleURL: URL?
         
-        let finish: (Result<Void, SigningError>) -> Void = { result in
+        let finish: () -> Void = {
             if let ipaURL = ipaURL {
                 try? FileManager.default.removeItem(at: ipaURL.deletingLastPathComponent())
             }
-            completionHandler(result)
         }
         
         // Extract IPA if needed
@@ -207,16 +206,14 @@ public final class Signer {
                 try Zip.unzipFile(appURL, destination: outputDirectoryURL, overwrite: true, password: nil)
                 appBundleURL = outputDirectoryURL
             } catch {
-                finish(.failure(.missingAppBundle(underlyingError: error)))
-                return progress
+                throw SigningError.missingAppBundle(underlyingError: error)
             }
         } else {
             appBundleURL = appURL
         }
         
         guard let appBundleURL = appBundleURL, let application = Application(fileURL: appBundleURL) else {
-            finish(.failure(.invalidApp))
-            return progress
+            throw SigningError.invalidApp
         }
         
         progress.totalUnitCount = Int64(FileManager.default.subpaths(atPath: appURL.path)?.count ?? 0)
@@ -230,105 +227,95 @@ public final class Signer {
             }
         }
         
-        Task {
-            let prepareApp: (Application) -> SigningError? = { app in
-                guard let profile = profileForApp(app) ?? profileForApp(application) else {
-                    return .missingProvisioningProfile(bundleIdentifier: app.bundleIdentifier)
-                }
-                
-                do {
-                    try profile.data.write(to: app.fileURL.appendingPathComponent("embedded.mobileprovision"), options: .atomic)
-                    return nil
-                } catch {
-                    return .fileOperationFailed(error)
-                }
-            }
-            
-            if let error = prepareApp(application) {
-                finish(.failure(error))
-                return
-            }
-            
-            for appExtension in application.appExtensions {
-                if let error = prepareApp(appExtension) {
-                    finish(.failure(error))
-                    return
-                }
+        let prepareApp: (Application) -> SigningError? = { app in
+            guard let profile = profileForApp(app) ?? profileForApp(application) else {
+                return .missingProvisioningProfile(bundleIdentifier: app.bundleIdentifier)
             }
             
             do {
-                guard let p12Data = self.certificate.p12Data else {
-                    finish(.failure(.missingCertificate))
-                    return
-                }
-                
-                let p12FilePath = FileManager.default.temporaryDirectory.appendingPathComponent("certificate.p12")
-                try p12Data.write(to: p12FilePath)
-                
-                guard let profile = profileForApp(application) else {
-                    finish(.failure(.missingProvisioningProfile(bundleIdentifier: application.bundleIdentifier)))
-                    return
-                }
-                
-                let provisioningPath = try saveProvisioningProfile(profile)
-                
-                for appExtension in application.appExtensions {
-                    guard let extensionProfile = profileForApp(appExtension) ?? profileForApp(application) else {
-                        finish(.failure(.missingProvisioningProfile(bundleIdentifier: appExtension.bundleIdentifier)))
-                        return
-                    }
-                    
-                    let extensionProvisioningPath = try saveProvisioningProfile(extensionProfile)
-                    
-                    var originalBundleID: String = originalBID
-                    if !originalBID.isEmpty {
-                        originalBundleID = originalBID
-                    } else if application.bundleIdentifier.hasPrefix(team.identifier) {
-                        originalBundleID = application.bundleIdentifier.replacingOccurrences(of: team.identifier, with: "")
-                    }
-                    
-                    let newBundleID = appExtension.bundleIdentifier.hasPrefix(application.bundleIdentifier) ? appExtension.bundleIdentifier : appExtension.bundleIdentifier.replacingOccurrences(of: originalBundleID, with: application.bundleIdentifier)
-                    print("signing app extension \(appExtension.bundleIdentifier)")
-                    try await Zsign.signAsync(
-                        appPath: appExtension.fileURL.path,
-                        provisionPath: extensionProvisioningPath,
-                        p12Path: p12FilePath.path,
-                        p12Password: "",
-                        customIdentifier: newBundleID
-                    )
-                    
-                }
-                
-                try await Zsign.signAsync(
-                    appPath: appBundleURL.path,
-                    provisionPath: provisioningPath,
-                    p12Path: p12FilePath.path,
-                    p12Password: "",
-                    customIdentifier: application.bundleIdentifier
-                )
-                
-                
-                DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + 0.5) {
-                    if let ipaURL = ipaURL {
-                        do {
-                            if FileManager.default.fileExists(atPath: ipaURL.path) {
-                                try FileManager.default.removeItem(at: ipaURL)
-                            }
-                            try Zip.zipFiles(paths: [appBundleURL], zipFilePath: appURL, password: nil, progress: nil)
-                            finish(.success(()))
-                        } catch {
-                            finish(.failure(.fileOperationFailed(error)))
-                        }
-                    } else {
-                        finish(.success(()))
-                    }
-                }
+                try profile.data.write(to: app.fileURL.appendingPathComponent("embedded.mobileprovision"), options: .atomic)
+                return nil
             } catch {
-                finish(.failure(.unknown(error.localizedDescription)))
+                return .fileOperationFailed(error)
             }
         }
         
-        return progress
+        if let error = prepareApp(application) {
+            throw error
+        }
+        
+        for appExtension in application.appExtensions {
+            if let error = prepareApp(appExtension) {
+                throw error
+            }
+        }
+        
+        do {
+            guard let p12Data = self.certificate.p12Data else {
+                throw SigningError.missingCertificate
+            }
+            
+            let p12FilePath = FileManager.default.temporaryDirectory.appendingPathComponent("certificate.p12")
+            try p12Data.write(to: p12FilePath)
+            
+            guard let profile = profileForApp(application) else {
+                throw SigningError.missingProvisioningProfile(bundleIdentifier: application.bundleIdentifier)
+            }
+            
+            let provisioningPath = try saveProvisioningProfile(profile)
+            
+            for appExtension in application.appExtensions {
+                guard let extensionProfile = profileForApp(appExtension) ?? profileForApp(application) else {
+                    throw SigningError.missingProvisioningProfile(bundleIdentifier: application.bundleIdentifier)
+                }
+                
+                let extensionProvisioningPath = try saveProvisioningProfile(extensionProfile)
+                
+                var originalBundleID: String = originalBID
+                if !originalBID.isEmpty {
+                    originalBundleID = originalBID
+                } else if application.bundleIdentifier.hasPrefix(team.identifier) {
+                    originalBundleID = application.bundleIdentifier.replacingOccurrences(of: team.identifier, with: "")
+                }
+                
+                let newBundleID = appExtension.bundleIdentifier.hasPrefix(application.bundleIdentifier) ? appExtension.bundleIdentifier : appExtension.bundleIdentifier.replacingOccurrences(of: originalBundleID, with: application.bundleIdentifier)
+                print("signing app extension \(newBundleID)")
+                try await Zsign.signAsync(
+                    appPath: appExtension.fileURL.path,
+                    provisionPath: extensionProvisioningPath,
+                    p12Path: p12FilePath.path,
+                    p12Password: "",
+                    customIdentifier: newBundleID
+                )
+                
+            }
+            
+            try await Zsign.signAsync(
+                appPath: appBundleURL.path,
+                provisionPath: provisioningPath,
+                p12Path: p12FilePath.path,
+                p12Password: "",
+                customIdentifier: application.bundleIdentifier
+            )
+            
+            
+            if let ipaURL = ipaURL {
+                do {
+                    if FileManager.default.fileExists(atPath: ipaURL.path) {
+                        try FileManager.default.removeItem(at: ipaURL)
+                    }
+                    try Zip.zipFiles(paths: [appBundleURL], zipFilePath: appURL, password: nil, progress: nil)
+                    
+                } catch {
+                    throw SigningError.fileOperationFailed(error)
+                }
+            } else {
+                
+            }
+        } catch {
+            throw SigningError.unknown(error.localizedDescription)
+        }
+        
     }
 }
 
