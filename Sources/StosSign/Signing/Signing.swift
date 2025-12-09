@@ -260,6 +260,7 @@ public final class Signer {
             }
             
             do {
+                print(String(data: self.certificate.data ?? Data(), encoding: .utf8))
                 guard let p12Data = self.certificate.p12Data else {
                     finish(.failure(.missingCertificate))
                     return
