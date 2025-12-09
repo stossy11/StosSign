@@ -185,7 +185,7 @@ public final class Signer {
         self.certificate = certificate
     }
     
-    public func signApp(at appURL: URL, provisioningProfiles profiles: [ProvisioningProfile], completionHandler: @escaping (Result<Void, SigningError>) -> Void) -> Progress {
+    public func signApp(at appURL: URL, originalBID: String = "", provisioningProfiles profiles: [ProvisioningProfile], completionHandler: @escaping (Result<Void, SigningError>) -> Void) -> Progress {
         let progress = Progress(totalUnitCount: 1)
         var ipaURL: URL?
         var appBundleURL: URL?
@@ -280,13 +280,21 @@ public final class Signer {
                     
                     let extensionProvisioningPath = try saveProvisioningProfile(extensionProfile)
                     
+                    var originalBundleID: String = originalBID
+                    if !originalBID.isEmpty {
+                        originalBundleID = originalBID
+                    } else if application.bundleIdentifier.hasPrefix(team.identifier) {
+                        originalBundleID = application.bundleIdentifier.replacingOccurrences(of: team.identifier, with: "")
+                    }
+                    
+                    let newBundleID = appExtension.bundleIdentifier.hasPrefix(application.bundleIdentifier) ? appExtension.bundleIdentifier : appExtension.bundleIdentifier.replacingOccurrences(of: originalBundleID, with: application.bundleIdentifier)
+                    print("signing app extension \(appExtension.bundleIdentifier)")
                     try await Zsign.signAsync(
                         appPath: appExtension.fileURL.path,
                         provisionPath: extensionProvisioningPath,
                         p12Path: p12FilePath.path,
                         p12Password: "",
-                        customIdentifier: appExtension.bundleIdentifier,
-                        customName: appExtension.name
+                        customIdentifier: newBundleID
                     )
                     
                 }
@@ -296,8 +304,7 @@ public final class Signer {
                     provisionPath: provisioningPath,
                     p12Path: p12FilePath.path,
                     p12Password: "",
-                    customIdentifier: application.bundleIdentifier,
-                    customName: application.name
+                    customIdentifier: application.bundleIdentifier
                 )
                 
                 
@@ -360,7 +367,7 @@ extension Zsign {
         p12Path: String,
         p12Password: String,
         customIdentifier: String,
-        customName: String
+        customName: String = ""
     ) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             _ = Zsign.sign(
