@@ -12,7 +12,7 @@ let package = Package(
     products: [
         .library(
             name: "StosSign",
-            targets: ["StosSign", "StosSign_Certificate", "StosOpenSSL"]
+            targets: ["StosSign", "StosSign_Certificate", "StosOpenSSL", "StosSign_API", "StosSign_Auth"]
         ),
     ],
     dependencies: [
