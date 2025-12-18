@@ -12,10 +12,11 @@ public typealias AnisetteData = StosSign_API.AnisetteData
 public typealias Account = StosSign_API.Account
 public typealias AppleAPISession = StosSign_API.AppleAPISession
 public typealias AppleAPIError = StosSign_API.AppleAPIError
-public typealias Authentication = _Authentication
 
-public final class _Authentication {
-    public func authenticate(
+public final class Authentication {
+    public init() { }
+    
+    public static func authenticate(
         appleID unsanitizedAppleID: String,
         password: String,
         anisetteData: AnisetteData,

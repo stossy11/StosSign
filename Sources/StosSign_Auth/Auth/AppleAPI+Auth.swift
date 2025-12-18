@@ -14,6 +14,7 @@ extension AppleAPI {
         appleID unsanitizedAppleID: String,
         password: String,
         anisetteData: AnisetteData,
+        apps: [String]? = nil,
         verificationHandler: ((@escaping (String?) -> Void) async -> Void)? = nil
     ) async throws -> (Account, AppleAPISession) {
         let sanitizedAppleID = unsanitizedAppleID.lowercased()
@@ -164,36 +165,77 @@ extension AppleAPI {
             
             context.sessionKey = sessionKey
             
-            let app = "com.apple.gs.xcode.auth"
-            guard let checksum = context.makeChecksum(appName: app) else {
-                throw AppleAPIError.authenticationHandshakeFailed
+            if let apps {
+                var tokens: [String: String] = [:]
+                
+                for app in apps {
+                    guard let checksum = context.makeChecksum(appName: app) else {
+                        continue
+                    }
+                    
+                    let tokenParameters: [String: Any] = [
+                        "app": [app],
+                        "c": c,
+                        "checksum": checksum,
+                        "cpd": clientDictionary,
+                        "o": "apptokens",
+                        "t": idmsToken,
+                        "u": dsid
+                    ]
+                    
+                    if let token = try? await fetchAuthToken(
+                        app: app,
+                        parameters: tokenParameters,
+                        context: context,
+                        anisetteData: anisetteData
+                    ) {
+                        tokens[app] = token
+                    }
+                }
+                
+                
+                let session = AppleAPISession(
+                    dsid: dsid,
+                    authTokens: tokens,
+                    anisetteData: anisetteData
+                )
+                
+                
+                let account = try await fetchAccount(session: session)
+                return (account, session)
+            } else {
+                let app = "com.apple.gs.xcode.auth"
+                guard let checksum = context.makeChecksum(appName: app) else {
+                    throw AppleAPIError.authenticationHandshakeFailed
+                }
+                
+                let tokenParameters: [String: Any] = [
+                    "app": [app],
+                    "c": c,
+                    "checksum": checksum,
+                    "cpd": clientDictionary,
+                    "o": "apptokens",
+                    "t": idmsToken,
+                    "u": dsid
+                ]
+                
+                
+                let token = try await fetchAuthToken(
+                    app: app,
+                    parameters: tokenParameters,
+                    context: context,
+                    anisetteData: anisetteData
+                )
+                
+                let session = AppleAPISession(
+                    dsid: dsid,
+                    authToken: token,
+                    anisetteData: anisetteData
+                )
+                
+                let account = try await fetchAccount(session: session)
+                return (account, session)
             }
-            
-            let tokenParameters: [String: Any] = [
-                "app": [app],
-                "c": c,
-                "checksum": checksum,
-                "cpd": clientDictionary,
-                "o": "apptokens",
-                "t": idmsToken,
-                "u": dsid
-            ]
-            
-            let token = try await fetchAuthToken(
-                app: app,
-                parameters: tokenParameters,
-                context: context,
-                anisetteData: anisetteData
-            )
-            
-            let session = AppleAPISession(
-                dsid: dsid,
-                authToken: token,
-                anisetteData: anisetteData
-            )
-            
-            let account = try await fetchAccount(session: session)
-            return (account, session)
         }
     }
     
