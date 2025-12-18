@@ -327,7 +327,7 @@ public final class Authentication {
     
     // Private funcs :3
 
-    private static func fetchAuthToken(
+    public static func fetchAuthToken(
         app: String,
         parameters: [String: Any],
         context: GSAContext,
@@ -363,7 +363,7 @@ public final class Authentication {
         return authToken
     }
 
-    private static func requestTrustedDeviceTwoFactorCode(
+    public static func requestTrustedDeviceTwoFactorCode(
         dsid: String,
         idmsToken: String,
         anisetteData: AnisetteData,
@@ -426,7 +426,7 @@ public final class Authentication {
         }
     }
 
-    private static func requestSMSTwoFactorCode(
+    public static func requestSMSTwoFactorCode(
         dsid: String,
         idmsToken: String,
         anisetteData: AnisetteData,
