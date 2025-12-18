@@ -22,6 +22,10 @@ let package = Package(
             name: "StosSign_Certificate",
             targets: ["StosSign_Certificate"]
         ),
+        .library(
+            name: "StosSign_Auth",
+            targets: ["StosSign_Auth"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-crypto.git", "1.0.0" ..< "5.0.0"),
