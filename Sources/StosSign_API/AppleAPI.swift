@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import StosSign_Certificate
 
 let clientID = "XABBG36SBA"
 let QH_Protocol = "QH65B2"
@@ -14,9 +15,9 @@ let authProtocol = "A1234"
 
 public final class AppleAPI {
     public let session = URLSession(configuration: URLSessionConfiguration.ephemeral)
-    let dateFormatter = ISO8601DateFormatter()
-    let qhURL = URL(string: "https://developerservices2.apple.com/services/\(QH_Protocol)/")!
-    let v1URL = URL(string: "https://developerservices2.apple.com/services/\(V1_Protocol)/")!
+    public let dateFormatter = ISO8601DateFormatter()
+    public let qhURL = URL(string: "https://developerservices2.apple.com/services/\(QH_Protocol)/")!
+    public let v1URL = URL(string: "https://developerservices2.apple.com/services/\(V1_Protocol)/")!
     
     public static var shared = AppleAPI()
     

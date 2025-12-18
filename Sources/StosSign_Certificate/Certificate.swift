@@ -6,8 +6,9 @@
 //
 
 import Foundation
+#if canImport(StosOpenSSL)
 import StosOpenSSL
-import StosSign_Certificate
+#endif
 
 public final class Certificate {
     public let name: String
@@ -140,6 +141,7 @@ public final class Certificate {
     }
     
     private static func createP12(certificate: Data, privateKey: Data, password: String) -> Data? {
+#if canImport(StosOpenSSL)
         var p12Pointer: UnsafeMutablePointer<UInt8>?
         var p12Length: size_t = 0
         
@@ -167,6 +169,9 @@ public final class Certificate {
         
         defer { free(p12Pointer) }
         return Data(bytes: pointer, count: p12Length)
+        #else
+        return Data()
+        #endif
     }
     
     private static func extractCertificateData(from attributes: [String: Any]) -> Data? {

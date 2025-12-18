@@ -185,7 +185,7 @@ public final class Signer {
         self.certificate = certificate
     }
     
-    public func signApp(at appURL: URL, originalBID: String = "", provisioningProfiles profiles: [ProvisioningProfile]) async throws  {
+    public func signApp(at appURL: URL, originalBID: String = "", entitlements: [Entitlement : Any], provisioningProfiles profiles: [ProvisioningProfile]) async throws  {
         let progress = Progress(totalUnitCount: 1)
         var ipaURL: URL?
         var appBundleURL: URL?
@@ -226,30 +226,7 @@ public final class Signer {
                 return appBID == profileBID
             }
         }
-        
-        let prepareApp: (Application) -> SigningError? = { app in
-            guard let profile = profileForApp(app) ?? profileForApp(application) else {
-                return .missingProvisioningProfile(bundleIdentifier: app.bundleIdentifier)
-            }
-            
-            do {
-                try profile.data.write(to: app.fileURL.appendingPathComponent("embedded.mobileprovision"), options: .atomic)
-                return nil
-            } catch {
-                return .fileOperationFailed(error)
-            }
-        }
-        
-        if let error = prepareApp(application) {
-            throw error
-        }
-        
-        for appExtension in application.appExtensions {
-            if let error = prepareApp(appExtension) {
-                throw error
-            }
-        }
-        
+
         do {
             guard let p12Data = self.certificate.p12Data else {
                 throw SigningError.missingCertificate
@@ -287,7 +264,6 @@ public final class Signer {
                     p12Password: "",
                     customIdentifier: newBundleID
                 )
-                
             }
             
             try await Zsign.signAsync(
@@ -297,7 +273,6 @@ public final class Signer {
                 p12Password: "",
                 customIdentifier: application.bundleIdentifier
             )
-            
             
             if let ipaURL = ipaURL {
                 do {
@@ -361,9 +336,9 @@ extension Zsign {
                 appPath: appPath,
                 provisionPath: provisionPath,
                 p12Path: p12Path,
-                p12Password: p12Password,
                 customIdentifier: customIdentifier,
-                customName: customName
+                customName: customName,
+                removeProvision: true // this actually adds the provisioning profile. samara fix your naming conventions :woeis:
             ) { success, error in
                 if let error = error {
                     continuation.resume(throwing: error)

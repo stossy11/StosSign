@@ -5,7 +5,6 @@
 //  Created by Stossy11 on 09/12/2025.
 //
 
-// I had to do this in a new target because Certificate from swift-certificates (aka X509) was clashing with Certificate from StosSign
 import Foundation
 import SwiftASN1
 import X509
@@ -24,8 +23,8 @@ public class CSR {
         
         let privateKey = try _RSA.Signing.PrivateKey(keySize: .bits2048)
         
-        let privateKeyCertificate = Certificate.PrivateKey(privateKey)
-        let extensions = try Certificate.Extensions {
+        let privateKeyCertificate = X509.Certificate.PrivateKey(privateKey)
+        let extensions = try X509.Certificate.Extensions {
             //SubjectAlternativeNames([.dnsName("YOUR_DNS_NAME")])
         }
         let extensionRequest = ExtensionRequest(extensions: extensions)

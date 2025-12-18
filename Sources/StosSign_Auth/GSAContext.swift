@@ -202,6 +202,10 @@ extension Data {
             return nil
         }
     }
+    
+    var bytes: [UInt8] {
+        return Array(self)
+    }
 }
 
 extension Digest {
@@ -209,3 +213,4 @@ extension Digest {
         map { String(format: "%02hhx", $0) }.joined()
     }
 }
+

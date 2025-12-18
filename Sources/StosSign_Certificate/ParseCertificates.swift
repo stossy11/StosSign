@@ -12,12 +12,13 @@ import CryptoKit
 public class CertificateParser {
     public static func parseCerts(_ cert: Data) -> (String, String)? {
         let bytes = [UInt8](cert)
-        let certificate: Certificate
         
-        if let certDer = try? Certificate(derEncoded: bytes) {
+        let certificate: X509.Certificate
+        
+        if let certDer = try? X509.Certificate(derEncoded: bytes) {
             certificate = certDer
         } else if let pemString = String(data: cert, encoding: .utf8),
-                  let certPem = try? Certificate(pemEncoded: pemString) {
+                  let certPem = try? X509.Certificate(pemEncoded: pemString) {
             certificate = certPem
         } else {
             return nil

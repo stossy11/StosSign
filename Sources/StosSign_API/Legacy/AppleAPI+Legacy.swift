@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import StosSign_Certificate
 
 @available(*, deprecated, message: "Please Use async functions instead")
 extension AppleAPI {
@@ -170,26 +171,6 @@ extension AppleAPI {
                 completionHandler(success, nil)
             } catch {
                 completionHandler(false, error)
-            }
-        }
-    }
-    
-    public func authenticate(
-        appleID unsanitizedAppleID: String,
-        password: String,
-        anisetteData: AnisetteData,
-        verificationHandler: ((@escaping (String?) -> Void) -> Void)? = nil,
-        completionHandler: @escaping (Account?, AppleAPISession?, Error?) -> Void
-    ) {
-        Task {
-            do {
-                let success = try await authenticate(appleID: unsanitizedAppleID, password: password, anisetteData: anisetteData) { veri in 
-                    verificationHandler?(veri)
-                }
-                
-                completionHandler(success.0, success.1, nil)
-            } catch {
-                completionHandler(nil, nil, error)
             }
         }
     }

@@ -6,8 +6,10 @@
 //
 
 import Foundation
+import StosSign_API
 
 extension AppleAPI {
+    
     public func authenticate(
         appleID unsanitizedAppleID: String,
         password: String,
@@ -194,6 +196,27 @@ extension AppleAPI {
             return (account, session)
         }
     }
+    
+    public func authenticate(
+        appleID unsanitizedAppleID: String,
+        password: String,
+        anisetteData: AnisetteData,
+        verificationHandler: ((@escaping (String?) -> Void) -> Void)? = nil,
+        completionHandler: @escaping (Account?, AppleAPISession?, Error?) -> Void
+    ) {
+        Task {
+            do {
+                let success = try await authenticate(appleID: unsanitizedAppleID, password: password, anisetteData: anisetteData) { veri in
+                    verificationHandler?(veri)
+                }
+                
+                completionHandler(success.0, success.1, nil)
+            } catch {
+                completionHandler(nil, nil, error)
+            }
+        }
+    }
+    
 
     public func sendAuthenticationRequest(
         parameters requestParameters: [String: Any],

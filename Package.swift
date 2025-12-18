@@ -10,35 +10,28 @@ let package = Package(
         .macOS(.v11),
     ],
     products: [
-        // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
             name: "StosSign",
-            targets: ["StosOpenSSL", "StosSign", "StosSign_Certificate"]),
+            targets: ["StosSign", "StosSign_Certificate", "StosOpenSSL"]
+        ),
     ],
     dependencies: [
-        // .package(url: "https://github.com/stossy11/CoreCrypto-SPM", branch: "master"),
         .package(url: "https://github.com/apple/swift-crypto.git", "1.0.0" ..< "5.0.0"),
         .package(url: "https://github.com/marmelroy/Zip.git", branch: "master"),
         .package(url: "https://github.com/khcrysalis/Zsign-Package", branch: "package"),
         .package(url: "https://github.com/adam-fowler/swift-srp.git", revision: "ce202c48f8ca68f44b71732f945eb8221d6fe135"),
         .package(url: "https://github.com/krzyzanowskim/OpenSSL", from: "3.3.3001"),
-        .package(url: "https://github.com/apple/swift-certificates.git", .upToNextMinor(from: "0.6.0"))
-        //https://github.com/marmelroy/Zip
+        .package(url: "https://github.com/apple/swift-certificates.git", from: "0.6.0"),
     ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "StosSign",
             dependencies: [
                 .product(name: "ZsignSwift", package: "Zsign-Package"),
-                .product(name: "Crypto", package: "swift-crypto"),
-                .product(name: "SRP", package: "swift-srp"),
                 .product(name: "Zip", package: "Zip"),
-                .product(name: "OpenSSL", package: "OpenSSL"),
-                .product(name: "X509", package: "swift-certificates"),
-                "StosOpenSSL",
-                "StosSign_Certificate"
+                "StosSign_Certificate",
+                "StosSign_Auth",
+                "StosSign_API",
             ]
         ),
         .target(
@@ -47,7 +40,26 @@ let package = Package(
                 .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "SRP", package: "swift-srp"),
                 .product(name: "Zip", package: "Zip"),
-                .product(name: "X509", package: "swift-certificates")
+                .product(name: "X509", package: "swift-certificates"),
+                .target(
+                    name: "StosOpenSSL",
+                    condition: .when(platforms: [.iOS, .macOS, .tvOS, .watchOS, .macCatalyst, .visionOS])
+                ),
+            ]
+        ),
+        .target(
+            name: "StosSign_API",
+            dependencies: [
+                "StosSign_Certificate"
+            ]
+        ),
+        .target(
+            name: "StosSign_Auth",
+            dependencies: [
+                .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "SRP", package: "swift-srp"),
+                .product(name: "X509", package: "swift-certificates"),
+                "StosSign_API",
             ]
         ),
         .target(
@@ -58,7 +70,6 @@ let package = Package(
             path: "Sources/Dependencies/Modules/OpenSSL"
         ),
     ],
-    
-    cLanguageStandard: CLanguageStandard.gnu11,
+    cLanguageStandard: .gnu11,
     cxxLanguageStandard: .cxx14
 )
