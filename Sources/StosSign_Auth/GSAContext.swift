@@ -152,7 +152,7 @@ extension Data {
         map { String(format: "%02hhx", $0) }.joined()
     }
     
-    func decryptedCBC(context gsaContext: GSAContext) -> Data? {
+    public func decryptedCBC(context gsaContext: GSAContext) -> Data? {
         let sessionKey = gsaContext.makeHMACKey("extra data key:")
         var iv = gsaContext.makeHMACKey("extra data iv:")
         iv = iv.count >= 16 ? iv.prefix(16) : iv
@@ -185,7 +185,7 @@ extension Data {
         return decryptedData
     }
     
-    func decryptedGCM(context gsaContext: GSAContext) -> Data? {
+    public func decryptedGCM(context gsaContext: GSAContext) -> Data? {
         guard let sessionKey = gsaContext.sessionKey, count >= 35 else { return nil }
         
         let version = self[0..<3]
