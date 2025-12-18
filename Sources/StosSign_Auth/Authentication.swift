@@ -14,7 +14,7 @@ public typealias AppleAPISession = StosSign_API.AppleAPISession
 public typealias AppleAPIError = StosSign_API.AppleAPIError
 
 
-final class Authentication {
+public final class Authentication {
     public func authenticate(
         appleID unsanitizedAppleID: String,
         password: String,
