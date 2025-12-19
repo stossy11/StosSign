@@ -7,6 +7,10 @@
 
 import Foundation
 import StosSign_API
+import StosSign_Certificate
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public typealias AnisetteData = StosSign_API.AnisetteData
 public typealias Account = StosSign_API.Account

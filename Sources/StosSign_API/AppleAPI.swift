@@ -7,6 +7,9 @@
 
 import Foundation
 import StosSign_Certificate
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 let clientID = "XABBG36SBA"
 let QH_Protocol = "QH65B2"
