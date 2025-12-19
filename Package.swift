@@ -32,7 +32,7 @@ let package = Package(
         .package(url: "https://github.com/khcrysalis/Zsign-Package", branch: "package"),
         .package(url: "https://github.com/adam-fowler/swift-srp.git", revision: "ce202c48f8ca68f44b71732f945eb8221d6fe135"),
         .package(url: "https://github.com/krzyzanowskim/OpenSSL", from: "3.3.3001"),
-        .package(url: "https://github.com/apple/swift-certificates.git", from: "0.6.0"),
+        .package(url: "https://github.com/apple/swift-certificates.git", from: "1.0.0"),
     ],
     targets: [
         .target(
