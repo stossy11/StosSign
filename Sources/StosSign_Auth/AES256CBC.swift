@@ -23,7 +23,7 @@ func arc4random_uniform(_ upperBound: UInt32) -> UInt32 {
     var rng = SystemRandomNumberGenerator()
     let upperBoundInt = Int(upperBound)
     
-    let randomValue: Int
+    var randomValue: Int = Int(rng.next())
     repeat {
         randomValue = Int(rng.next())
     } while randomValue >= upperBoundInt * (Int.max / upperBoundInt)
