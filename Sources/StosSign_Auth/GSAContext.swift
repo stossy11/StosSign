@@ -100,29 +100,15 @@ public final class GSAContext {
     
     private func makeAppleX(password: String, salt: Data, iterations: Int) -> Data? {
         let passwordData = Data(password.utf8)
-        let p = Array(SHA256.hash(data: passwordData))
+        let p = Data(SHA256.hash(data: passwordData))
         
-        var derivedKey = Data(repeating: 0, count: 32)
+         let derivedKey = HKDF<SHA256>.deriveKey(
+            inputKeyMaterial: SymmetricKey(data: p),
+            salt: salt,
+            outputByteCount: 32
+        ) 
         
-        let status = derivedKey.withUnsafeMutableBytes { derivedPtr in
-            p.withUnsafeBytes { pPtr in
-                salt.withUnsafeBytes { saltPtr in
-                    CCKeyDerivationPBKDF(
-                        CCPBKDFAlgorithm(kCCPBKDF2),
-                        pPtr.baseAddress?.assumingMemoryBound(to: Int8.self),
-                        p.count,
-                        saltPtr.baseAddress?.assumingMemoryBound(to: UInt8.self),
-                        salt.count,
-                        CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256),
-                        UInt32(iterations),
-                        derivedPtr.baseAddress?.assumingMemoryBound(to: UInt8.self),
-                        32
-                    )
-                }
-            }
-        }
-        
-        return status == kCCSuccess ? derivedKey : nil
+        return Data(derivedKey.withUnsafeBytes { Array($0) })
     }
     
     public func makeChecksum(appName: String) -> Data? {
@@ -153,37 +139,20 @@ extension Data {
     }
     
     public func decryptedCBC(context gsaContext: GSAContext) -> Data? {
-        let sessionKey = gsaContext.makeHMACKey("extra data key:")
-        var iv = gsaContext.makeHMACKey("extra data iv:")
-        iv = iv.count >= 16 ? iv.prefix(16) : iv
-        
-        let decryptedSize = self.count + kCCBlockSizeAES128
-        var decryptedData = Data(count: decryptedSize)
-        var numBytesDecrypted: size_t = 0
-        
-        let cryptStatus = decryptedData.withUnsafeMutableBytes { decryptedBytes in
-            self.withUnsafeBytes { encryptedBytes in
-                sessionKey.withUnsafeBytes { keyBytes in
-                    iv.withUnsafeBytes { ivBytes in
-                        CCCrypt(
-                            CCOperation(kCCDecrypt),
-                            CCAlgorithm(kCCAlgorithmAES),
-                            CCOptions(kCCOptionPKCS7Padding),
-                            keyBytes.baseAddress, sessionKey.count,
-                            ivBytes.baseAddress,
-                            encryptedBytes.baseAddress, self.count,
-                            decryptedBytes.baseAddress, decryptedSize,
-                            &numBytesDecrypted
-                        )
-                    }
-                }
-            }
-        }
-        
-        guard cryptStatus == kCCSuccess else { return nil }
-        decryptedData.count = numBytesDecrypted
-        return decryptedData
-    }
+         let sessionKey = gsaContext.makeHMACKey("extra data key:")
+         var iv = gsaContext.makeHMACKey("extra data iv:")
+         iv = iv.count >= 16 ? iv.prefix(16) : iv
+         
+         do {
+             let cipher = try AESCipher(key: sessionKey.bytes, iv: iv.bytes)
+             let decrypted = try cipher.decrypt(bytes: self.bytes)
+             return Data(decrypted)
+         } catch {
+             print("AES-CBC decryption failed: \(error)")
+             return nil
+         }
+     }
+     
     
     public func decryptedGCM(context gsaContext: GSAContext) -> Data? {
         guard let sessionKey = gsaContext.sessionKey, count >= 35 else { return nil }
