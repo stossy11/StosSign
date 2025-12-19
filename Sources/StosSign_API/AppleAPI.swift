@@ -7,7 +7,7 @@
 
 import Foundation
 import StosSign_Certificate
-#if canImport(FoundationNetworking)
+#if !canImport(Darwin)
 import FoundationNetworking
 #endif
 
