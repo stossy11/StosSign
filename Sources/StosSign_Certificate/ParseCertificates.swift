@@ -7,7 +7,6 @@
 
 import Foundation
 import X509
-import CryptoKit
 
 public class CertificateParser {
     public static func parseCerts(_ cert: Data) -> (String, String)? {

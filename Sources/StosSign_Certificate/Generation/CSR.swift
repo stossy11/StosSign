@@ -8,7 +8,6 @@
 import Foundation
 import SwiftASN1
 import X509
-import CryptoKit
 import _CryptoExtras
 
 public class CSR {
