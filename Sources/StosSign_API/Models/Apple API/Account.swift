@@ -15,10 +15,7 @@ public class Account: Codable {
     private var fallbackFirstName: String = ""
     private var fallbackLastName: String = ""
     var name: String {
-        var components = PersonNameComponents()
-        components.givenName = firstName
-        components.familyName = lastName
-        return PersonNameComponentsFormatter().string(from: components)
+        return firstName + " " + lastName
     }
     
     required public init(from decoder: Decoder) throws {
