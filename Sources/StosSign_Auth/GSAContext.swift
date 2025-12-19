@@ -7,7 +7,6 @@
 
 import Foundation
 import Crypto
-import CommonCrypto
 import SRP
 
 public final class GSAContext {
