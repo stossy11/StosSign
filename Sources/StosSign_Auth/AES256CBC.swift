@@ -12,8 +12,8 @@
 // =================================================================================================
 
 import Foundation
-#if os(Linux)
-    import CLibBSD_Linux
+#if canImport(GlibC)
+    import GlibC
 #endif
 
 #if os(Windows)
