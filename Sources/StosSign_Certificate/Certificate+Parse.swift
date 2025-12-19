@@ -6,9 +6,15 @@
 //
 
 import Foundation
+#if canImport(Security)
+import Security
+#endif
 
 extension Certificate {
     static func parseP12Data(p12Data: Data, password: String) -> (certificatePEM: Data, privateKeyPEM: Data)? {
+#if !canImport(Security)
+        return nil
+#else
         let options = [kSecImportExportPassphrase as String: password]
         
         var items: CFArray?
@@ -51,6 +57,7 @@ extension Certificate {
         """.data(using: .utf8)!
         
         return (certificatePEM: certPEM, privateKeyPEM: keyPEM)
+#endif
     }
 
 }
