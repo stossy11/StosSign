@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import StosOpenSSL
 import StosSign_Certificate
 
 public class CertificateRequest {

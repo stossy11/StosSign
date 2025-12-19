@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import StosOpenSSL
 import ZsignSwift
 
 typealias EVP_PKEY = OpaquePointer
@@ -175,9 +174,6 @@ public final class Signer {
     public let team: Team
     public let certificate: Certificate
     
-    public static func load() {
-        OpenSSL_add_all_algorithms()
-    }
     
     public init(team: Team, certificate: Certificate) {
         self.team = team

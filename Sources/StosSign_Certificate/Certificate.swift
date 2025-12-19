@@ -142,6 +142,8 @@ public final class Certificate {
     
     private static func createP12(certificate: Data, privateKey: Data, password: String) -> Data? {
 #if canImport(StosOpenSSL)
+        OpenSSL_add_all_algorithms()
+        
         var p12Pointer: UnsafeMutablePointer<UInt8>?
         var p12Length: size_t = 0
         
