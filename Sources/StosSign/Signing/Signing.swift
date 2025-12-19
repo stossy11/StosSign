@@ -8,7 +8,6 @@
 import Foundation
 import StosOpenSSL
 import ZsignSwift
-import Zip
 
 typealias EVP_PKEY = OpaquePointer
 typealias X509 = OpaquePointer
@@ -187,30 +186,10 @@ public final class Signer {
     
     public func signApp(at appURL: URL, originalBID: String = "", entitlements: [Entitlement : Any], provisioningProfiles profiles: [ProvisioningProfile]) async throws  {
         let progress = Progress(totalUnitCount: 1)
-        var ipaURL: URL?
         var appBundleURL: URL?
         
-        let finish: () -> Void = {
-            if let ipaURL = ipaURL {
-                try? FileManager.default.removeItem(at: ipaURL.deletingLastPathComponent())
-            }
-        }
+    
         
-        // Extract IPA if needed
-        if appURL.pathExtension.lowercased() == "ipa" {
-            ipaURL = appURL
-            let outputDirectoryURL = appURL.deletingLastPathComponent().appendingPathComponent(UUID().uuidString, isDirectory: true)
-            
-            do {
-                try FileManager.default.createDirectory(at: outputDirectoryURL, withIntermediateDirectories: true)
-                try Zip.unzipFile(appURL, destination: outputDirectoryURL, overwrite: true, password: nil)
-                appBundleURL = outputDirectoryURL
-            } catch {
-                throw SigningError.missingAppBundle(underlyingError: error)
-            }
-        } else {
-            appBundleURL = appURL
-        }
         
         guard let appBundleURL = appBundleURL, let application = Application(fileURL: appBundleURL) else {
             throw SigningError.invalidApp
@@ -274,19 +253,7 @@ public final class Signer {
                 customIdentifier: application.bundleIdentifier
             )
             
-            if let ipaURL = ipaURL {
-                do {
-                    if FileManager.default.fileExists(atPath: ipaURL.path) {
-                        try FileManager.default.removeItem(at: ipaURL)
-                    }
-                    try Zip.zipFiles(paths: [appBundleURL], zipFilePath: appURL, password: nil, progress: nil)
-                    
-                } catch {
-                    throw SigningError.fileOperationFailed(error)
-                }
-            } else {
-                
-            }
+            
         } catch {
             throw SigningError.unknown(error.localizedDescription)
         }
