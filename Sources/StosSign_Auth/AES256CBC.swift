@@ -16,6 +16,22 @@ import Foundation
     import CLibBSD_Linux
 #endif
 
+#if os(Windows)
+func arc4random_uniform(_ upperBound: UInt32) -> UInt32 {
+    precondition(upperBound > 0, "upperBound must be greater than 0")
+    
+    var rng = SystemRandomNumberGenerator()
+    let upperBoundInt = Int(upperBound)
+    
+    let randomValue: Int
+    repeat {
+        randomValue = Int(rng.next())
+    } while randomValue >= upperBoundInt * (Int.max / upperBoundInt)
+
+    return UInt32(randomValue % upperBoundInt)
+}
+#endif
+
 final public class AES256CBC {
 
     /// returns optional encrypted string via AES-256CBC
