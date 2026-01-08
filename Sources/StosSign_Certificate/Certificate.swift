@@ -120,19 +120,16 @@ public final class Certificate {
     }
     
     public var p12Data: Data? {
-        encryptedP12Data(password: "")
-    }
-    
-    public func encryptedP12Data(password: String) -> Data? {
         guard let certificateData = data,
               let privateKeyData = privateKey else {
             return nil
         }
         
+        print(certificateData)
         return Self.createP12(
             certificate: certificateData,
             privateKey: privateKeyData,
-            password: password
+            password: ""
         )
     }
     
