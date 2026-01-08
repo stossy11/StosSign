@@ -182,12 +182,8 @@ public final class Signer {
     
     public func signApp(at appURL: URL, originalBID: String = "", entitlements: [Entitlement : Any], provisioningProfiles profiles: [ProvisioningProfile]) async throws  {
         let progress = Progress(totalUnitCount: 1)
-        var appBundleURL: URL?
         
-    
-        
-        
-        guard let appBundleURL = appBundleURL, let application = Application(fileURL: appBundleURL) else {
+        guard let application = Application(fileURL: appURL) else {
             throw SigningError.invalidApp
         }
         
@@ -242,7 +238,7 @@ public final class Signer {
             }
             
             try await Zsign.signAsync(
-                appPath: appBundleURL.path,
+                appPath: appURL.path,
                 provisionPath: provisioningPath,
                 p12Path: p12FilePath.path,
                 p12Password: "",
