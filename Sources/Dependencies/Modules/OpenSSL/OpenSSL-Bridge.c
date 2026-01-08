@@ -21,6 +21,7 @@ bool create_p12_data(const unsigned char *certData, int certDataLength,
     // Try to parse certificate - first as PEM, then as DER
     BIO *certBio = BIO_new_mem_buf((const void *)certData, certDataLength);
     if (!certBio) {
+        fprintf(stderr, "Failed to create certificate BIO\n");
         goto cleanup;
     }
     
@@ -41,6 +42,7 @@ bool create_p12_data(const unsigned char *certData, int certDataLength,
     // Try to parse private key - first as PEM, then as DER
     BIO *keyBio = BIO_new_mem_buf((const void *)privateKeyData, privateKeyDataLength);
     if (!keyBio) {
+        fprintf(stderr, "Failed to create key BIO\n");
         goto cleanup;
     }
     
@@ -49,7 +51,9 @@ bool create_p12_data(const unsigned char *certData, int certDataLength,
         // Reset BIO and try DER format
         BIO_free(keyBio);
         keyBio = BIO_new_mem_buf((const void *)privateKeyData, privateKeyDataLength);
-        privateKey = d2i_AutoPrivateKey(NULL, (const unsigned char **)&privateKeyData, privateKeyDataLength);
+        
+        const unsigned char *tempPtr = privateKeyData;
+        privateKey = d2i_AutoPrivateKey(NULL, &tempPtr, privateKeyDataLength);
         if (!privateKey) {
             fprintf(stderr, "Failed to parse private key as PEM or DER\n");
             goto cleanup;
@@ -57,6 +61,11 @@ bool create_p12_data(const unsigned char *certData, int certDataLength,
     }
     BIO_free(keyBio);
     keyBio = NULL;
+
+    if (!X509_check_private_key(certificate, privateKey)) {
+        fprintf(stderr, "Private key does not match certificate\n");
+        goto cleanup;
+    }
 
     // Create PKCS12 structure
     char emptyString[] = "";
@@ -80,6 +89,7 @@ bool create_p12_data(const unsigned char *certData, int certDataLength,
     // Convert PKCS12 to DER format
     p12Buffer = BIO_new(BIO_s_mem());
     if (!p12Buffer) {
+        fprintf(stderr, "Failed to create P12 buffer BIO\n");
         goto cleanup;
     }
     
@@ -98,6 +108,7 @@ bool create_p12_data(const unsigned char *certData, int certDataLength,
     
     *outP12Data = (unsigned char *)malloc(*outP12DataLength);
     if (!*outP12Data) {
+        fprintf(stderr, "Failed to allocate memory for P12 data\n");
         goto cleanup;
     }
     memcpy(*outP12Data, buffer, *outP12DataLength);

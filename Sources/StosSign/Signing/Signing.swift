@@ -183,9 +183,15 @@ public final class Signer {
     public func signApp(at appURL: URL, originalBID: String = "", entitlements: [Entitlement : Any], provisioningProfiles profiles: [ProvisioningProfile]) async throws  {
         let progress = Progress(totalUnitCount: 1)
         
-        guard let application = Application(fileURL: appURL) else {
+        guard var application = Application(fileURL: appURL) else {
             throw SigningError.invalidApp
         }
+        
+        var bundleID = application.bundleIdentifier
+        if !bundleID.hasSuffix(team.identifier) {
+            bundleID += "." + team.identifier
+        }
+        
         
         progress.totalUnitCount = Int64(FileManager.default.subpaths(atPath: appURL.path)?.count ?? 0)
         
@@ -194,7 +200,7 @@ public final class Signer {
                 let profileBID = profile.bundleIdentifier
                 let appBID = app.bundleIdentifier
                 
-                return appBID == profileBID
+                return appBID == profileBID || bundleID == profileBID
             }
         }
 
@@ -207,14 +213,13 @@ public final class Signer {
             try p12Data.write(to: p12FilePath)
             
             guard let profile = profileForApp(application) else {
-                throw SigningError.missingProvisioningProfile(bundleIdentifier: application.bundleIdentifier)
+                throw SigningError.missingProvisioningProfile(bundleIdentifier: bundleID)
             }
-            
             let provisioningPath = try saveProvisioningProfile(profile)
             
             for appExtension in application.appExtensions {
                 guard let extensionProfile = profileForApp(appExtension) ?? profileForApp(application) else {
-                    throw SigningError.missingProvisioningProfile(bundleIdentifier: application.bundleIdentifier)
+                    throw SigningError.missingProvisioningProfile(bundleIdentifier: bundleID)
                 }
                 
                 let extensionProvisioningPath = try saveProvisioningProfile(extensionProfile)
@@ -222,11 +227,11 @@ public final class Signer {
                 var originalBundleID: String = originalBID
                 if !originalBID.isEmpty {
                     originalBundleID = originalBID
-                } else if application.bundleIdentifier.hasPrefix(team.identifier) {
-                    originalBundleID = application.bundleIdentifier.replacingOccurrences(of: team.identifier, with: "")
+                } else if bundleID.hasPrefix(team.identifier) {
+                    originalBundleID = bundleID.replacingOccurrences(of: team.identifier, with: "")
                 }
                 
-                let newBundleID = appExtension.bundleIdentifier.hasPrefix(application.bundleIdentifier) ? appExtension.bundleIdentifier : appExtension.bundleIdentifier.replacingOccurrences(of: originalBundleID, with: application.bundleIdentifier)
+                let newBundleID = appExtension.bundleIdentifier.hasPrefix(bundleID) ? appExtension.bundleIdentifier : appExtension.bundleIdentifier.replacingOccurrences(of: originalBundleID, with: bundleID)
                 print("signing app extension \(newBundleID)")
                 try await Zsign.signAsync(
                     appPath: appExtension.fileURL.path,
@@ -242,7 +247,7 @@ public final class Signer {
                 provisionPath: provisioningPath,
                 p12Path: p12FilePath.path,
                 p12Password: "",
-                customIdentifier: application.bundleIdentifier
+                customIdentifier: bundleID
             )
             
             
