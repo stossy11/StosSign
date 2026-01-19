@@ -12,9 +12,9 @@
 #import "CSCommon.h"
 #import "SecCodePriv.h"
 #import "SecStaticCode.h"
-#import "CMSDecoder.h"
 #import "CodeSigner.h"
-#import <Security/Security.h>
+#import "SecPolicyPriv.h"
+#import "CMSDecoder.h"
 #import <dlfcn.h>
 
 NSArray<NSString *> *allNestedCodePathsSorted(NSString *bundlePath) {
@@ -82,13 +82,101 @@ NSArray<NSString *> *allNestedCodePathsSorted(NSString *bundlePath) {
 	return results;
 }
 
+static NSString * const kRootCA_PEM = // root ca
+@"-----BEGIN CERTIFICATE-----\n"
+"MIICQzCCAcmgAwIBAgIILcX8iNLFS5UwCgYIKoZIzj0EAwMwZzEbMBkGA1UEAwwS\n"
+"QXBwbGUgUm9vdCBDQSAtIEczMSYwJAYDVQQLDB1BcHBsZSBDZXJ0aWZpY2F0aW9u\n"
+"IEF1dGhvcml0eTETMBEGA1UECgwKQXBwbGUgSW5jLjELMAkGA1UEBhMCVVMwHhcN\n"
+"MTQwNDMwMTgxOTA2WhcNMzkwNDMwMTgxOTA2WjBnMRswGQYDVQQDDBJBcHBsZSBS\n"
+"b290IENBIC0gRzMxJjAkBgNVBAsMHUFwcGxlIENlcnRpZmljYXRpb24gQXV0aG9y\n"
+"aXR5MRMwEQYDVQQKDApBcHBsZSBJbmMuMQswCQYDVQQGEwJVUzB2MBAGByqGSM49\n"
+"AgEGBSuBBAAiA2IABJjpLz1AcqTtkyJygRMc3RCV8cWjTnHcFBbZDuWmBSp3ZHtf\n"
+"TjjTuxxEtX/1H7YyYl3J6YRbTzBPEVoA/VhYDKX1DyxNB0cTddqXl5dvMVztK517\n"
+"IDvYuVTZXpmkOlEKMaNCMEAwHQYDVR0OBBYEFLuw3qFYM4iapIqZ3r6966/ayySr\n"
+"MA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMAoGCCqGSM49BAMDA2gA\n"
+"MGUCMQCD6cHEFl4aXTQY2e3v9GwOAEZLuN+yRhHFD/3meoyhpmvOwgPUnPWTxnS4\n"
+"at+qIxUCMG1mihDK1A3UT82NQz60imOlM27jbdoXt2QfyFMm+YhidDkLF1vLUagM\n"
+"6BgD56KyKA==\n"
+"-----END CERTIFICATE-----";
 
+static NSString * const kIntermediateCA_PEM = // G3
+@"-----BEGIN CERTIFICATE-----\n"
+"MIIEUTCCAzmgAwIBAgIQfK9pCiW3Of57m0R6wXjF7jANBgkqhkiG9w0BAQsFADBi\n"
+"MQswCQYDVQQGEwJVUzETMBEGA1UEChMKQXBwbGUgSW5jLjEmMCQGA1UECxMdQXBw\n"
+"bGUgQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkxFjAUBgNVBAMTDUFwcGxlIFJvb3Qg\n"
+"Q0EwHhcNMjAwMjE5MTgxMzQ3WhcNMzAwMjIwMDAwMDAwWjB1MUQwQgYDVQQDDDtB\n"
+"cHBsZSBXb3JsZHdpZGUgRGV2ZWxvcGVyIFJlbGF0aW9ucyBDZXJ0aWZpY2F0aW9u\n"
+"IEF1dGhvcml0eTELMAkGA1UECwwCRzMxEzARBgNVBAoMCkFwcGxlIEluYy4xCzAJ\n"
+"BgNVBAYTAlVTMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2PWJ/KhZ\n"
+"C4fHTJEuLVaQ03gdpDDppUjvC0O/LYT7JF1FG+XrWTYSXFRknmxiLbTGl8rMPPbW\n"
+"BpH85QKmHGq0edVny6zpPwcR4YS8Rx1mjjmi6LRJ7TrS4RBgeo6TjMrA2gzAg9Dj\n"
+"+ZHWp4zIwXPirkbRYp2SqJBgN31ols2N4Pyb+ni743uvLRfdW/6AWSN1F7gSwe0b\n"
+"5TTO/iK1nkmw5VW/j4SiPKi6xYaVFuQAyZ8D0MyzOhZ71gVcnetHrg21LYwOaU1A\n"
+"0EtMOwSejSGxrC5DVDDOwYqGlJhL32oNP/77HK6XF8J4CjDgXx9UO0m3JQAaN4LS\n"
+"VpelUkl8YDib7wIDAQABo4HvMIHsMBIGA1UdEwEB/wQIMAYBAf8CAQAwHwYDVR0j\n"
+"BBgwFoAUK9BpR5R2Cf70a40uQKb3R01/CF4wRAYIKwYBBQUHAQEEODA2MDQGCCsG\n"
+"AQUFBzABhihodHRwOi8vb2NzcC5hcHBsZS5jb20vb2NzcDAzLWFwcGxlcm9vdGNh\n"
+"MC4GA1UdHwQnMCUwI6AhoB+GHWh0dHA6Ly9jcmwuYXBwbGUuY29tL3Jvb3QuY3Js\n"
+"MB0GA1UdDgQWBBQJ/sAVkPmvZAqSErkmKGMMl+ynsjAOBgNVHQ8BAf8EBAMCAQYw\n"
+"EAYKKoZIhvdjZAYCAQQCBQAwDQYJKoZIhvcNAQELBQADggEBAK1lE+j24IF3RAJH\n"
+"Qr5fpTkg6mKp/cWQyXMT1Z6b0KoPjY3L7QHPbChAW8dVJEH4/M/BtSPp3Ozxb8qA\n"
+"HXfCxGFJJWevD8o5Ja3T43rMMygNDi6hV0Bz+uZcrgZRKe3jhQxPYdwyFot30ETK\n"
+"XXIDMUacrptAGvr04NM++i+MZp+XxFRZ79JI9AeZSWBZGcfdlNHAwWx/eCHvDOs7\n"
+"bJmCS1JgOLU5gm3sUjFTvg+RTElJdI+mUcuER04ddSduvfnSXPN/wmwLCTbiZOTC\n"
+"NwMUGdXqapSqqdv+9poIZ4vvK7iqF0mDr8/LvOnP6pVxsLRFoszlh6oKw0E6eVza\n"
+"UDSdlTs=\n"
+"-----END CERTIFICATE-----";
+
+static SecCertificateRef CreateCertFromPEM(NSString *pem) {
+	NSString *clean =
+		[[pem componentsSeparatedByCharactersInSet:
+		  [NSCharacterSet newlineCharacterSet]] componentsJoinedByString:@""];
+
+	clean = [clean stringByReplacingOccurrencesOfString:@"-----BEGIN CERTIFICATE-----" withString:@""];
+	clean = [clean stringByReplacingOccurrencesOfString:@"-----END CERTIFICATE-----" withString:@""];
+
+	NSData *der = [[NSData alloc] initWithBase64EncodedString:clean
+													  options:NSDataBase64DecodingIgnoreUnknownCharacters];
+	if (!der) return NULL;
+
+	return SecCertificateCreateWithData(kCFAllocatorDefault, (__bridge CFDataRef)der);
+}
+
+static void AddCertToAppKeychainIfNeeded(SecCertificateRef cert) {
+	if (!cert) return;
+
+	NSDictionary *item = @{
+		(__bridge id)kSecClass: (__bridge id)kSecClassCertificate,
+		(__bridge id)kSecValueRef: (__bridge id)cert,
+		(__bridge id)kSecAttrAccessible: (__bridge id)kSecAttrAccessibleAfterFirstUnlock
+	};
+
+	OSStatus status = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
+
+	if (status == errSecDuplicateItem) return;
+	if (status != errSecSuccess) {
+		NSLog(@"SecItemAdd failed: %d", (int)status);
+	}
+}
 
 int codesignAllNested(NSString *bundlePath,
 					  const char *p12Path,
 					  const char *p12Password,
 					  const char *mobileProvisionPath)
 {
+	static dispatch_once_t onceToken;
+	dispatch_once(&onceToken, ^{
+		SecCertificateRef rootCert = CreateCertFromPEM(kRootCA_PEM);
+		SecCertificateRef intermediateCert = CreateCertFromPEM(kIntermediateCA_PEM);
+
+		AddCertToAppKeychainIfNeeded(rootCert);
+		AddCertToAppKeychainIfNeeded(intermediateCert);
+
+		if (rootCert) CFRelease(rootCert);
+		if (intermediateCert) CFRelease(intermediateCert);
+	});
+
+	
 	NSFileManager *fm = [NSFileManager defaultManager];
 	
 	NSString *rootExtension = [[bundlePath pathExtension] lowercaseString];
@@ -122,8 +210,7 @@ int codesignAllNested(NSString *bundlePath,
 			path.UTF8String,
 			p12Path,
 			p12Password,
-			provToUse,
-			YES
+			provToUse
 		);
 
 		if (status != 0) {
@@ -139,8 +226,7 @@ int codesign_sign_with_p12_and_mobileprovision(
 	const char *appPath,
 	const char *p12Path,
 	const char *p12Password,
-	const char * _Nullable mobileProvisionPath,
-	BOOL shallow
+	const char * _Nullable mobileProvisionPath
 ) {
 	OSStatus (*__SecCodeSignerCreate)(CFDictionaryRef, SecCSFlags, SecCodeSignerRef *) =
 		dlsym(RTLD_DEFAULT, "SecCodeSignerCreate");
@@ -209,11 +295,7 @@ int codesign_sign_with_p12_and_mobileprovision(
 
 	NSLog(@"Signer parameters: %@", parameters);
 	SecCodeSignerRef signerRef = NULL;
-	SecCSFlags createFlags = 0;
-	if (!shallow) {
-		createFlags |= kSecCSSignNestedCode;
-	}
-	secStatus = __SecCodeSignerCreate((__bridge CFDictionaryRef)parameters, createFlags, &signerRef);
+	secStatus = __SecCodeSignerCreate((__bridge CFDictionaryRef)parameters, kSecCSDefaultFlags, &signerRef);
 	if (secStatus != errSecSuccess || !signerRef) {
 		NSLog(@"SecCodeSignerCreate failed! OSStatus = %d", (int)secStatus);
 		CFRelease(items);

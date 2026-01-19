@@ -23,7 +23,7 @@
 
 /*
  * CMSDecoder.h - decode, decrypt, and/or verify signatures of messages in the
- *                  Cryptographic Message Syntax (CMS), per RFC 3852.
+ *				  Cryptographic Message Syntax (CMS), per RFC 3852.
  *
  * See CMSEncoder.h for general information about CMS messages.
  */
@@ -54,20 +54,21 @@ CFTypeID CMSDecoderGetTypeID(void);
  * Status of signature and signer information in a signed message.
  */
 typedef CF_ENUM(uint32_t, CMSSignerStatus) {
-    kCMSSignerUnsigned = 0,                /* message was not signed */
-    kCMSSignerValid,                    /* message was signed and signature verify OK */
-    kCMSSignerNeedsDetachedContent,        /* message was signed but needs detached content
+    kCMSSignerUnsigned = 0,				/* message was not signed */
+    kCMSSignerValid,					/* message was signed and signature verify OK */
+    kCMSSignerNeedsDetachedContent,		/* message was signed but needs detached content
                                          *   to verify */
-    kCMSSignerInvalidSignature,            /* message was signed but had a signature error */
-    kCMSSignerInvalidCert,                /* message was signed but an error occurred in verifying
+    kCMSSignerInvalidSignature,			/* message was signed but had a signature error */
+    kCMSSignerInvalidCert,				/* message was signed but an error occurred in verifying
                                          *   the signer's certificate */
-    kCMSSignerInvalidIndex                /* specified signer index out of range */
+    kCMSSignerInvalidIndex				/* specified signer index out of range */
 };
 
 /*
  * Create a CMSDecoder. Result must eventually be freed via CFRelease().
  */
-OSStatus CMSDecoderCreate(CMSDecoderRef * __nonnull CF_RETURNS_RETAINED cmsDecoderOut)    /* RETURNED */;
+OSStatus CMSDecoderCreate(CMSDecoderRef * __nonnull CF_RETURNS_RETAINED cmsDecoderOut)	/* RETURNED */
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Feed raw bytes of the message to be decoded into the decoder. Can be called
@@ -76,9 +77,10 @@ OSStatus CMSDecoderCreate(CMSDecoderRef * __nonnull CF_RETURNS_RETAINED cmsDecod
  * message.
  */
 OSStatus CMSDecoderUpdateMessage(
-    CMSDecoderRef        cmsDecoder,
-    const void            *msgBytes,
-    size_t                msgBytesLen);
+    CMSDecoderRef		cmsDecoder,
+    const void			*msgBytes,
+    size_t				msgBytesLen)
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Indicate that no more CMSDecoderUpdateMessage() calls are forthcoming;
@@ -86,7 +88,8 @@ OSStatus CMSDecoderUpdateMessage(
  * Returns errSecUnknownFormat upon detection of improperly formatted CMS
  * message.
  */
-OSStatus CMSDecoderFinalizeMessage(CMSDecoderRef cmsDecoder);
+OSStatus CMSDecoderFinalizeMessage(CMSDecoderRef cmsDecoder)
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * A signed CMS message optionally includes the data which was signed. If the
@@ -100,8 +103,9 @@ OSStatus CMSDecoderFinalizeMessage(CMSDecoderRef cmsDecoder);
  * CMSDecoderCopySignerStatus().
  */
 OSStatus CMSDecoderSetDetachedContent(
-    CMSDecoderRef        cmsDecoder,
-    CFDataRef            detachedContent);
+    CMSDecoderRef		cmsDecoder,
+    CFDataRef			detachedContent)
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the detached content specified in CMSDecoderSetDetachedContent().
@@ -109,8 +113,9 @@ OSStatus CMSDecoderSetDetachedContent(
  * Caller must CFRelease() the result.
  */
 OSStatus CMSDecoderCopyDetachedContent(
-    CMSDecoderRef        cmsDecoder,
-    CFDataRef * __nonnull CF_RETURNS_RETAINED detachedContentOut)    /* RETURNED */;
+    CMSDecoderRef		cmsDecoder,
+    CFDataRef * __nonnull CF_RETURNS_RETAINED detachedContentOut)	/* RETURNED */
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 #if SEC_OS_OSX
 /*
@@ -120,7 +125,7 @@ OSStatus CMSDecoderCopyDetachedContent(
 OSStatus CMSDecoderSetSearchKeychain(
     CMSDecoderRef        cmsDecoder,
     CFTypeRef            keychainOrArray)
-    API_DEPRECATED_WITH_REPLACEMENT("SecKeychainSetSearchList",macos(10.5, 10.13)) API_UNAVAILABLE(ios, watchos, tvos, macCatalyst);
+    API_DEPRECATED_WITH_REPLACEMENT("SecKeychainSetSearchList",macos(10.5, 10.13)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 #endif // SEC_OS_OSX
 
 /*
@@ -129,8 +134,9 @@ OSStatus CMSDecoderSetSearchKeychain(
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
 OSStatus CMSDecoderGetNumSigners(
-    CMSDecoderRef        cmsDecoder,
-    size_t                *numSignersOut)    /* RETURNED */;
+    CMSDecoderRef		cmsDecoder,
+    size_t				*numSignersOut)	/* RETURNED */
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the status of a CMS message's signature. A CMS message can
@@ -169,42 +175,42 @@ OSStatus CMSDecoderGetNumSigners(
  *
  * Outputs:
  * --------
- *    signerStatusOut            -- An enum indicating the overall status.
- *        kCMSSignerUnsigned         : message was not signed.
- *        kCMSSignerValid            : both signature and signer certificate verified OK.
- *        kCMSSignerNeedsDetachedContent : a call to CMSDecoderSetDetachedContent()
- *                                     is required to ascertain the signature status.
- *        kCMSSignerInvalidSignature : bad signature.
- *        kCMSSignerInvalidCert      : an error occurred verifying the signer's certificate.
- *                                     Further information available via the secTrust and
- *                                     certVerifyResultCode parameters. This will never be
- *                                     returned if evaluateSecTrust is FALSE.
- *        kCMSSignerInvalidIndex     : specified signerIndex is larger than the number of
- *                                     signers (minus 1).
+ *	signerStatusOut			-- An enum indicating the overall status.
+ *		kCMSSignerUnsigned         : message was not signed.
+ *		kCMSSignerValid            : both signature and signer certificate verified OK.
+ *		kCMSSignerNeedsDetachedContent : a call to CMSDecoderSetDetachedContent()
+ *							         is required to ascertain the signature status.
+ *		kCMSSignerInvalidSignature : bad signature.
+ *		kCMSSignerInvalidCert      : an error occurred verifying the signer's certificate.
+ *							         Further information available via the secTrust and
+ *							         certVerifyResultCode parameters. This will never be
+ *								     returned if evaluateSecTrust is FALSE.
+ *		kCMSSignerInvalidIndex     : specified signerIndex is larger than the number of
+ *								     signers (minus 1).
  *
- *    secTrustOut                -- The SecTrust object used to verify the signer's
- *                               certificate. Caller must CFRelease this.
- *    certVerifyResultCodeOut    -- The result of the certificate verification. If
- *                               the evaluateSecTrust argument is set to FALSE on
- *                               input, this out parameter is undefined on return.
+ *	secTrustOut				-- The SecTrust object used to verify the signer's
+ *							   certificate. Caller must CFRelease this.
+ *	certVerifyResultCodeOut	-- The result of the certificate verification. If
+ *							   the evaluateSecTrust argument is set to FALSE on
+ *							   input, this out parameter is undefined on return.
  *
  * The certVerifyResultCode value can indicate a large number of errors; some of
  * the most common and interesting errors are:
  *
  * CSSMERR_TP_INVALID_ANCHOR_CERT : The cert was verified back to a
- *        self-signed (root) cert which was present in the message, but
- *        that root cert is not a known, trusted root cert.
+ *		self-signed (root) cert which was present in the message, but
+ *		that root cert is not a known, trusted root cert.
  * CSSMERR_TP_NOT_TRUSTED: The cert could not be verified back to
- *        a root cert.
+ *		a root cert.
  * CSSMERR_TP_VERIFICATION_FAILURE: A root cert was found which does
- *       not self-verify.
+ *   	not self-verify.
  * CSSMERR_TP_VERIFY_ACTION_FAILED: Indicates a failure of the requested
- *        policy action.
+ *		policy action.
  * CSSMERR_TP_INVALID_CERTIFICATE: Indicates a bad leaf cert.
  * CSSMERR_TP_CERT_EXPIRED: A cert in the chain was expired at the time of
- *        verification.
+ *		verification.
  * CSSMERR_TP_CERT_NOT_VALID_YET: A cert in the chain was not yet valie at
- *        the time of    verification.
+ *		the time of	verification.
  */
 OSStatus CMSDecoderCopySignerStatus(
     CMSDecoderRef               cmsDecoder,
@@ -213,7 +219,8 @@ OSStatus CMSDecoderCopySignerStatus(
     Boolean                     evaluateSecTrust,
     CMSSignerStatus * __nullable signerStatusOut,               /* optional; RETURNED */
     SecTrustRef * __nullable CF_RETURNS_RETAINED secTrustOut,   /* optional; RETURNED */
-    OSStatus * __nullable certVerifyResultCodeOut)              /* optional; RETURNED */;
+    OSStatus * __nullable certVerifyResultCodeOut)              /* optional; RETURNED */
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the email address of signer 'signerIndex' of a CMS message, if
@@ -225,10 +232,10 @@ OSStatus CMSDecoderCopySignerStatus(
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
 OSStatus CMSDecoderCopySignerEmailAddress(
-    CMSDecoderRef        cmsDecoder,
-    size_t                signerIndex,
-    CFStringRef    * __nonnull CF_RETURNS_RETAINED signerEmailAddressOut);    /* RETURNED */
-
+    CMSDecoderRef		cmsDecoder,
+    size_t				signerIndex,
+    CFStringRef	* __nonnull CF_RETURNS_RETAINED signerEmailAddressOut)	/* RETURNED */
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the certificate of signer 'signerIndex' of a CMS message, if
@@ -240,9 +247,10 @@ OSStatus CMSDecoderCopySignerEmailAddress(
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
 OSStatus CMSDecoderCopySignerCert(
-    CMSDecoderRef        cmsDecoder,
-    size_t                signerIndex,
-    SecCertificateRef * __nonnull CF_RETURNS_RETAINED signerCertOut)    /* RETURNED */;
+    CMSDecoderRef		cmsDecoder,
+    size_t				signerIndex,
+    SecCertificateRef * __nonnull CF_RETURNS_RETAINED signerCertOut)    /* RETURNED */
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Determine whether a CMS message was encrypted. Returns TRUE if so, FALSE if not.
@@ -252,8 +260,9 @@ OSStatus CMSDecoderCopySignerCert(
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
 OSStatus CMSDecoderIsContentEncrypted(
-    CMSDecoderRef        cmsDecoder,
-    Boolean                *isEncryptedOut);
+    CMSDecoderRef		cmsDecoder,
+    Boolean				*isEncryptedOut)
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the eContentType OID for a SignedData's EncapsulatedContentType, if
@@ -263,8 +272,9 @@ OSStatus CMSDecoderIsContentEncrypted(
  * the encoded content of the OID, not including the tag and length bytes.
  */
 OSStatus CMSDecoderCopyEncapsulatedContentType(
-   CMSDecoderRef        cmsDecoder,
-   CFDataRef * __nonnull CF_RETURNS_RETAINED eContentTypeOut)  /* RETURNED */;
+   CMSDecoderRef		cmsDecoder,
+   CFDataRef * __nonnull CF_RETURNS_RETAINED eContentTypeOut)  /* RETURNED */
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain an array of all of the certificates in a message. Elements of the
@@ -275,8 +285,9 @@ OSStatus CMSDecoderCopyEncapsulatedContentType(
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
 OSStatus CMSDecoderCopyAllCerts(
-    CMSDecoderRef        cmsDecoder,
-    CFArrayRef * __nonnull CF_RETURNS_RETAINED certsOut)    /* RETURNED */;
+    CMSDecoderRef		cmsDecoder,
+    CFArrayRef * __nonnull CF_RETURNS_RETAINED certsOut)    /* RETURNED */
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the actual message content (payload), if any. If the message was
@@ -285,8 +296,9 @@ OSStatus CMSDecoderCopyAllCerts(
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
 OSStatus CMSDecoderCopyContent(
-    CMSDecoderRef        cmsDecoder,
-    CFDataRef * __nonnull CF_RETURNS_RETAINED contentOut)    /* RETURNED */;
+    CMSDecoderRef		cmsDecoder,
+    CFDataRef * __nonnull CF_RETURNS_RETAINED contentOut)	/* RETURNED */
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the signing time of signer 'signerIndex' of a CMS message, if
@@ -299,9 +311,9 @@ OSStatus CMSDecoderCopyContent(
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
 OSStatus CMSDecoderCopySignerSigningTime(
-    CMSDecoderRef        cmsDecoder,
-    size_t                signerIndex,
-    CFAbsoluteTime      *signingTime)            /* RETURNED */;
+    CMSDecoderRef		cmsDecoder,
+    size_t				signerIndex,
+    CFAbsoluteTime      *signingTime)			/* RETURNED */;
 
 /*
  * Obtain the timestamp of signer 'signerIndex' of a CMS message, if
@@ -314,9 +326,9 @@ OSStatus CMSDecoderCopySignerSigningTime(
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
 OSStatus CMSDecoderCopySignerTimestamp(
-    CMSDecoderRef        cmsDecoder,
-    size_t                signerIndex,
-    CFAbsoluteTime      *timestamp)            /* RETURNED */;
+    CMSDecoderRef		cmsDecoder,
+    size_t				signerIndex,
+    CFAbsoluteTime      *timestamp)			/* RETURNED */;
 
 /*
  * Obtain the timestamp of signer 'signerIndex' of a CMS message, if
@@ -329,10 +341,10 @@ OSStatus CMSDecoderCopySignerTimestamp(
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
 OSStatus CMSDecoderCopySignerTimestampWithPolicy(
-    CMSDecoderRef        cmsDecoder,
+    CMSDecoderRef		cmsDecoder,
     CFTypeRef __nullable timeStampPolicy,
-    size_t                signerIndex,        /* usually 0 */
-    CFAbsoluteTime      *timestamp)            /* RETURNED */;
+    size_t				signerIndex,        /* usually 0 */
+    CFAbsoluteTime      *timestamp)			/* RETURNED */;
 
 /*
  * Obtain an array of the certificates in a timestamp response. Elements of the
@@ -347,12 +359,13 @@ OSStatus CMSDecoderCopySignerTimestampWithPolicy(
  * This cannot be called until after CMSDecoderFinalizeMessage() is called.
  */
 OSStatus CMSDecoderCopySignerTimestampCertificates(
-    CMSDecoderRef        cmsDecoder,
-    size_t                signerIndex,                            /* usually 0 */
+    CMSDecoderRef		cmsDecoder,
+    size_t				signerIndex,                            /* usually 0 */
     CFArrayRef * __nonnull CF_RETURNS_RETAINED certificateRefs) /* RETURNED */;
 
 CF_ASSUME_NONNULL_END
 
 __END_DECLS
 
-#endif    /* _CMS_DECODER_H_ */
+#endif	/* _CMS_DECODER_H_ */
+
