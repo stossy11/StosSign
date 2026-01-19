@@ -12,7 +12,7 @@ let package = Package(
     products: [
         .library(
             name: "StosSign",
-            targets: ["StosSign", "StosSign_Certificate", "StosOpenSSL", "StosSign_API", "StosSign_Auth"]
+            targets: ["StosSign", "StosSign_CodeSign", "StosSign_Certificate", "StosOpenSSL", "StosSign_API", "StosSign_Auth"]
         ),
         .library(
             name: "StosSign_API",
@@ -25,6 +25,10 @@ let package = Package(
         .library(
             name: "StosSign_Auth",
             targets: ["StosSign_Auth"]
+        ),
+        .library(
+            name: "StosSign_CodeSign",
+            targets: ["StosSign_CodeSign"]
         ),
     ],
     dependencies: [
@@ -42,6 +46,7 @@ let package = Package(
                 "StosSign_Certificate",
                 "StosSign_Auth",
                 "StosSign_API",
+                "StosSign_CodeSign",
             ]
         ),
         .target(
@@ -77,6 +82,10 @@ let package = Package(
                 .product(name: "OpenSSL", package: "OpenSSL"),
             ],
             path: "Sources/Dependencies/Modules/OpenSSL"
+        ),
+        .target(
+            name: "StosSign_CodeSign",
+           // path: "Sources/StosSign/StosSign_CodeSign"
         ),
     ],
     cLanguageStandard: .gnu11,

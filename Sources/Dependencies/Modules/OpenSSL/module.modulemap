@@ -1,5 +1,0 @@
-module StosOpenSSL {
-    header "OpenSSL-Bridge.h"
-    export *
-}
-

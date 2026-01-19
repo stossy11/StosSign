@@ -6,7 +6,11 @@
 //
 
 import Foundation
+#if canImport(Security)
+import StosSign_CodeSign
+#else
 import ZsignSwift
+#endif
 
 typealias EVP_PKEY = OpaquePointer
 typealias X509 = OpaquePointer
@@ -233,7 +237,7 @@ public final class Signer {
                 
                 let newBundleID = appExtension.bundleIdentifier.hasPrefix(bundleID) ? appExtension.bundleIdentifier : appExtension.bundleIdentifier.replacingOccurrences(of: originalBundleID, with: bundleID)
                 print("signing app extension \(newBundleID)")
-                try await Zsign.signAsync(
+                try await Signer.signAsync(
                     appPath: appExtension.fileURL.path,
                     provisionPath: extensionProvisioningPath,
                     p12Path: p12FilePath.path,
@@ -242,7 +246,7 @@ public final class Signer {
                 )
             }
             
-            try await Zsign.signAsync(
+            try await Signer.signAsync(
                 appPath: appURL.path,
                 provisionPath: provisioningPath,
                 p12Path: p12FilePath.path,
@@ -286,7 +290,7 @@ extension URL {
     }
 }
 
-extension Zsign {
+extension Signer {
     static func signAsync(
         appPath: String,
         provisionPath: String,
@@ -296,26 +300,24 @@ extension Zsign {
         customName: String = ""
     ) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            _ = Zsign.sign(
-                appPath: appPath,
-                provisionPath: provisionPath,
-                p12Path: p12Path,
-                customIdentifier: customIdentifier,
-                customName: customName,
-                removeProvision: true // this actually adds the provisioning profile. samara fix your naming conventions :woeis:
-            ) { success, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                } else if success {
-                    continuation.resume(returning: ())
-                } else {
-                    continuation.resume(throwing: NSError(
-                        domain: "Zsign",
-                        code: -1,
-                        userInfo: [NSLocalizedDescriptionKey: "Signing failed"]
-                    ))
-                }
+            let status = codesignAllNested(
+                appPath,
+                p12Path,
+                "",
+                provisionPath
+            )
+            
+            if status == 0 {
+                continuation.resume(returning: ())
+            } else {
+                continuation.resume(throwing: NSError(
+                    domain: "CodeSign",
+                    code: Int(status),
+                    userInfo: [NSLocalizedDescriptionKey: "Signing failed"]
+                ))
             }
+            
         }
     }
 }
+
