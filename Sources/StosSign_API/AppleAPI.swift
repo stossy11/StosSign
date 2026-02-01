@@ -755,31 +755,3 @@ public enum SignError: Int, Error {
     case missingInfoPlist
     case missingProvisioningProfile
 }
-
-public enum AppleAPIError: Error {
-    case unknown // 0
-    case invalidParameters // 1
-    case badServerResponse // 2
-    case incorrectCredentials // 3
-    case accountLocked // 4
-    case appSpecificPasswordRequired // 5
-    case noTeams // 6
-    case invalidDeviceID // 7
-    case deviceAlreadyRegistered // 8
-    case invalidCertificateRequest // 9
-    case certificateDoesNotExist // 10
-    case invalidAppIDName // 11
-    case invalidBundleIdentifier // 12
-    case bundleIdentifierUnavailable // 13
-    case appIDDoesNotExist // 14
-    case maximumAppIDLimitReached // 15
-    case invalidAppGroup // 16
-    case appGroupDoesNotExist // 17
-    case invalidProvisioningProfileIdentifier // 18
-    case provisioningProfileDoesNotExist // 19
-    case requiresTwoFactorAuthentication // 20
-    case incorrectVerificationCode // 21
-    case authenticationHandshakeFailed // 22
-    case invalidAnisetteData // 23
-    case customError(code: Int, message: String)
-}
