@@ -281,6 +281,8 @@ public final class Authentication {
                 throw AppleAPIError.incorrectCredentials
             case -22421:
                 throw AppleAPIError.invalidAnisetteData
+            case -20209:
+                throw AppleAPIError.accountLocked
             default:
                 guard let errorDescription = status["em"] as? String else {
                     throw AppleAPIError.unknown

@@ -761,24 +761,25 @@ public enum AppleAPIError: Error {
     case invalidParameters // 1
     case badServerResponse // 2
     case incorrectCredentials // 3
-    case appSpecificPasswordRequired // 4
-    case noTeams // 5
-    case invalidDeviceID // 6
-    case deviceAlreadyRegistered // 7
-    case invalidCertificateRequest // 8
-    case certificateDoesNotExist // 9
-    case invalidAppIDName // 10
-    case invalidBundleIdentifier // 11
-    case bundleIdentifierUnavailable // 12
-    case appIDDoesNotExist // 13
-    case maximumAppIDLimitReached // 14
-    case invalidAppGroup // 15
-    case appGroupDoesNotExist // 16
-    case invalidProvisioningProfileIdentifier // 17
-    case provisioningProfileDoesNotExist // 18
-    case requiresTwoFactorAuthentication // 19
-    case incorrectVerificationCode // 20
-    case authenticationHandshakeFailed // 21
-    case invalidAnisetteData // 22
+    case accountLocked // 4
+    case appSpecificPasswordRequired // 5
+    case noTeams // 6
+    case invalidDeviceID // 7
+    case deviceAlreadyRegistered // 8
+    case invalidCertificateRequest // 9
+    case certificateDoesNotExist // 10
+    case invalidAppIDName // 11
+    case invalidBundleIdentifier // 12
+    case bundleIdentifierUnavailable // 13
+    case appIDDoesNotExist // 14
+    case maximumAppIDLimitReached // 15
+    case invalidAppGroup // 16
+    case appGroupDoesNotExist // 17
+    case invalidProvisioningProfileIdentifier // 18
+    case provisioningProfileDoesNotExist // 19
+    case requiresTwoFactorAuthentication // 20
+    case incorrectVerificationCode // 21
+    case authenticationHandshakeFailed // 22
+    case invalidAnisetteData // 23
     case customError(code: Int, message: String)
 }
