@@ -162,8 +162,7 @@ static void AddCertToAppKeychainIfNeeded(SecCertificateRef cert) {
 int codesignAllNested(NSString *bundlePath,
 					  const char *p12Path,
 					  const char *p12Password,
-					  const char *mobileProvisionPath)
-{
+					  const char *mobileProvisionPath) {
 	static dispatch_once_t onceToken;
 	dispatch_once(&onceToken, ^{
 		SecCertificateRef rootCert = CreateCertFromPEM(kRootCA_PEM);
@@ -227,6 +226,7 @@ int codesign_sign_with_p12_and_mobileprovision(
 	const char *p12Path,
 	const char *p12Password,
 	const char * _Nullable mobileProvisionPath) {
+    
 	OSStatus (*__SecCodeSignerCreate)(CFDictionaryRef, SecCSFlags, SecCodeSignerRef *) =
 		dlsym(RTLD_DEFAULT, "SecCodeSignerCreate");
 	OSStatus (*__SecCodeSignerAddSignatureWithErrors)(SecCodeSignerRef, SecStaticCodeRef, SecCSFlags, CFErrorRef *) =

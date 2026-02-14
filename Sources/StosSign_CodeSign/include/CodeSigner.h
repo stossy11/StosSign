@@ -17,7 +17,6 @@ int codesign_sign_with_p12_and_mobileprovision(
     const char *appPath,
     const char *p12Path,
     const char *p12Password,
-    const char * _Nullable mobileProvisionPath,
-);
+    const char * _Nullable mobileProvisionPath);
 
 NS_ASSUME_NONNULL_END
