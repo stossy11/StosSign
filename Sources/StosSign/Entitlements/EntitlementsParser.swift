@@ -6,181 +6,200 @@
 //
 
 import Foundation
+import MachO
 
-public struct EntitlementsParser {
+// Thank you: https://github.com/matrejek/SwiftEntitlements
 
-    private struct MachHeader {
-        let magic: UInt32
-        let cputype: Int32
-        let cpusubtype: Int32
-        let filetype: UInt32
-        let ncmds: UInt32
-        let sizeofcmds: UInt32
-        let flags: UInt32
-    }
+public class EntitlementsParser {
 
-    private struct LoadCommand {
-        let cmd: UInt32
-        let cmdsize: UInt32
-    }
+    public enum Error: Swift.Error {
+        case binaryOpeningError
+        case unknownBinaryFormat
+        case codeSignatureCommandMissing
+        case signatureReadingError
+        case unsupportedFatBinary
 
-    private struct LinkeditDataCommand {
-        let cmd: UInt32
-        let cmdsize: UInt32
-        let dataoff: UInt32
-        let datasize: UInt32
+        var localizedDescription: String {
+            switch self {
+            case .binaryOpeningError:
+                return "Error while opening application binary for reading"
+            case .unknownBinaryFormat:
+                return "The binary format is not supported"
+            case .codeSignatureCommandMissing:
+                return "Unable to find code signature load command"
+            case .signatureReadingError:
+                return "Signature reading error occurred"
+            case .unsupportedFatBinary:
+                return "Fat application binaries are unsupported"
+            }
+        }
     }
 
     private struct CSSuperBlob {
-        let magic: UInt32
-        let length: UInt32
-        let count: UInt32
+        var magic: UInt32
+        var lentgh: UInt32
+        var count: UInt32
     }
 
-    private struct CSBlobIndex {
-        let type: UInt32
-        let offset: UInt32
+    private struct CSBlob {
+        var type: UInt32
+        var offset: UInt32
     }
 
-    private static let LC_CODE_SIGNATURE: UInt32 = 0x1D
-    private static let CSMAGIC_EMBEDDED_SIGNATURE: UInt32 = 0xfade0cc0
-    private static let CSMAGIC_EMBEDDED_ENTITLEMENTS: UInt32 = 0xfade7171
-
-
-    static func extractEntitlements(from path: String) throws -> String {
-        var isDirectory: ObjCBool = false
-
-        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) else {
-            throw EntitlementError.fileNotFound
-        }
-
-        let executablePath = isDirectory.boolValue ? findExecutable(in: path) : path
-
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: executablePath)) else {
-            throw EntitlementError.unableToReadFile
-        }
-
-        return try parseEntitlements(from: data)
+    private struct CSMagic {
+        static let embeddedSignature: UInt32 = 0xfade0cc0
+        static let embededEntitlements: UInt32 = 0xfade7171
     }
 
-
-    private static func parseEntitlements(from data: Data) throws -> String {
-
-        guard data.count >= MemoryLayout<MachHeader>.size else {
-            throw EntitlementError.invalidFileFormat
+    private enum BinaryType {
+        struct HeaderData {
+            let headerSize: Int
+            let commandCount: Int
         }
+        case singleArch(headerInfo: HeaderData)
+        case fat(header: fat_header)
+    }
 
-        let header = data.withUnsafeBytes {
-            $0.load(as: MachHeader.self)
+    private let binary: ApplicationBinary
+
+    public init(_ binaryPath: String) throws {
+        guard let binary = ApplicationBinary(binaryPath) else {
+            throw Error.binaryOpeningError
         }
+        self.binary = binary
+    }
 
-        guard header.magic == 0xfeedface || header.magic == 0xfeedfacf else {
-            throw EntitlementError.notMachOFormat
+    private func getBinaryType(fromSliceStartingAt offset: UInt64 = 0) -> BinaryType? {
+        binary.seek(to: offset)
+        let header: mach_header = binary.read()
+        let commandCount = Int(header.ncmds)
+        switch header.magic {
+        case MH_MAGIC:
+            let data = BinaryType.HeaderData(headerSize: MemoryLayout<mach_header>.size,
+                                             commandCount: commandCount)
+            return .singleArch(headerInfo: data)
+        case MH_MAGIC_64:
+            let data = BinaryType.HeaderData(headerSize: MemoryLayout<mach_header_64>.size,
+                                             commandCount: commandCount)
+            return .singleArch(headerInfo: data)
+        default:
+            binary.seek(to: 0)
+            let fatHeader: fat_header = binary.read()
+            return CFSwapInt32(fatHeader.magic) == FAT_MAGIC ? .fat(header: fatHeader) : nil
         }
+    }
 
-        var offset = MemoryLayout<MachHeader>.size
+    public func readEntitlements() throws -> Entitlements {
+        switch getBinaryType() {
+        case .singleArch(let headerInfo):
+            let headerSize = headerInfo.headerSize
+            let commandCount = headerInfo.commandCount
+            return try readEntitlementsFromBinarySlice(startingAt: headerSize, cmdCount: commandCount)
+        case .fat:
+            return try readEntitlementsFromFatBinary()
+        case .none:
+            throw Error.unknownBinaryFormat
+        }
+    }
 
-        for _ in 0..<header.ncmds {
-
-            let loadCommand = data[offset...].withUnsafeBytes {
-                $0.load(as: LoadCommand.self)
+    private func readEntitlementsFromBinarySlice(startingAt offset: Int, cmdCount: Int) throws -> Entitlements {
+        binary.seek(to: UInt64(offset))
+        for _ in 0..<cmdCount {
+            let command: load_command = binary.read()
+            if command.cmd == LC_CODE_SIGNATURE {
+                let signatureOffset: UInt32 = binary.read()
+                return try readEntitlementsFromSignature(startingAt: signatureOffset)
             }
+            binary.seek(to: binary.currentOffset + UInt64(command.cmdsize - UInt32(MemoryLayout<load_command>.size)))
+        }
+        throw Error.codeSignatureCommandMissing
+    }
 
-            if loadCommand.cmd == LC_CODE_SIGNATURE {
+    private func readEntitlementsFromFatBinary() throws -> Entitlements {
+        throw Error.unsupportedFatBinary
+    }
 
-                let linkedit = data[offset...].withUnsafeBytes {
-                    $0.load(as: LinkeditDataCommand.self)
+    private func readEntitlementsFromSignature(startingAt offset: UInt32) throws -> Entitlements {
+        binary.seek(to: UInt64(offset))
+        let metaBlob: CSSuperBlob = binary.read()
+        if CFSwapInt32(metaBlob.magic) == CSMagic.embeddedSignature {
+            let metaBlobSize = UInt32(MemoryLayout<CSSuperBlob>.size)
+            let blobSize = UInt32(MemoryLayout<CSBlob>.size)
+            let itemCount = CFSwapInt32(metaBlob.count)
+            for index in 0..<itemCount {
+                let readOffset = UInt64(offset + metaBlobSize + index * blobSize)
+                binary.seek(to: readOffset)
+                let blob: CSBlob = binary.read()
+                binary.seek(to: UInt64(offset + CFSwapInt32(blob.offset)))
+                let blobMagic = CFSwapInt32(binary.read())
+                if blobMagic == CSMagic.embededEntitlements {
+                    let signatureLength = CFSwapInt32(binary.read())
+                    let signatureData = binary.readData(ofLength: Int(signatureLength) - 8)
+                    return Entitlements.entitlements(from: signatureData)
                 }
-
-                return try extractEntitlementsBlob(
-                    from: data,
-                    dataOffset: linkedit.dataoff,
-                    dataSize: linkedit.datasize
-                )
             }
-
-            offset += Int(loadCommand.cmdsize)
         }
+        throw Error.signatureReadingError
+    }
+}
 
-        throw EntitlementError.invalidFileFormat
+public class ApplicationBinary {
+
+    private let handle: FileHandle
+
+    public init?(_ path: String) {
+        guard let binaryHandle = FileHandle(forReadingAtPath: path) else {
+            return nil
+        }
+        handle = binaryHandle
     }
 
-    private static func extractEntitlementsBlob(
-        from data: Data,
-        dataOffset: UInt32,
-        dataSize: UInt32
-    ) throws -> String {
+    var currentOffset: UInt64 { handle.offsetInFile }
 
-        let start = Int(dataOffset)
-        let end = start + Int(dataSize)
-
-        guard end <= data.count else {
-            throw EntitlementError.invalidFileFormat
-        }
-
-        let superBlob = data[start...].withUnsafeBytes {
-            $0.load(as: CSSuperBlob.self)
-        }
-
-        let magic = CFSwapInt32(superBlob.magic)
-        guard magic == CSMAGIC_EMBEDDED_SIGNATURE else {
-            throw EntitlementError.invalidFileFormat
-        }
-
-        let count = CFSwapInt32(superBlob.count)
-        let indexOffset = start + MemoryLayout<CSSuperBlob>.size
-
-        for i in 0..<count {
-
-            let entryOffset = indexOffset + Int(i) * MemoryLayout<CSBlobIndex>.size
-
-            let blobIndex = data[entryOffset...].withUnsafeBytes {
-                $0.load(as: CSBlobIndex.self)
-            }
-
-            let blobOffset = start + Int(CFSwapInt32(blobIndex.offset))
-
-            let blobMagic = data[blobOffset...].withUnsafeBytes {
-                $0.load(as: UInt32.self)
-            }
-
-            if CFSwapInt32(blobMagic) == CSMAGIC_EMBEDDED_ENTITLEMENTS {
-
-                let length = data[(blobOffset + 4)..<data.count].withUnsafeBytes {
-                    $0.load(as: UInt32.self)
-                }
-
-                let blobLength = Int(CFSwapInt32(length))
-                let plistStart = blobOffset + 8
-                let plistEnd = blobOffset + blobLength
-
-                let plistData = data[plistStart..<plistEnd]
-
-                guard let entitlements = String(data: plistData, encoding: .utf8) else {
-                    throw EntitlementError.invalidFileFormat
-                }
-
-                return entitlements
-            }
-        }
-
-        throw EntitlementError.invalidFileFormat
+    func seek(to offset: UInt64) {
+        handle.seek(toFileOffset: offset)
     }
 
-
-    private static func findExecutable(in bundlePath: String) -> String {
-        let bundleURL = URL(fileURLWithPath: bundlePath)
-        guard let bundle = Bundle(url: bundleURL),
-              let executablePath = bundle.executablePath else {
-            return bundlePath
-        }
-        return executablePath
+    func read<T>() -> T {
+        handle.readData(ofLength: MemoryLayout<T>.size).withUnsafeBytes( { $0.load(as: T.self) })
     }
 
-    enum EntitlementError: Error {
-        case fileNotFound
-        case unableToReadFile
-        case invalidFileFormat
-        case notMachOFormat
+    func readData(ofLength length: Int) -> Data {
+        handle.readData(ofLength: length)
+    }
+
+    deinit {
+        handle.closeFile()
+    }
+}
+
+public class Entitlements {
+
+    public struct Key {
+
+        let rawKey: String
+
+        public init(_ name: String) {
+            self.rawKey = name
+        }
+    }
+
+   public static let empty: Entitlements = Entitlements([:])
+
+    public let values: [String: Any]
+
+    public init(_ values: [String: Any]) {
+        self.values = values
+    }
+
+    public func value(forKey key: Entitlements.Key) -> Any? {
+        values[key.rawKey]
+    }
+
+    class func entitlements(from data: Data) -> Entitlements {
+        guard let rawValues = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] else {
+            return .empty
+        }
+        return Entitlements(rawValues)
     }
 }

@@ -35,25 +35,18 @@ public class Application: NSObject {
         if let cached = _entitlements {
             return cached
         }
-        
-        guard let entitlementsString = try? self.entitlementsString, !entitlementsString.isEmpty,
-              let data = entitlementsString.data(using: .utf8) else {
-            _entitlements = [:]
-            return [:]
-        }
+
         
         do {
-            guard let entitlements = try PropertyListSerialization.propertyList(
-                from: data,
-                options: [],
-                format: nil
-            ) as? [Entitlement: Any] else {
-                _entitlements = [:]
-                return [:]
-            }
+           let path = bundle.executableURL?.path ?? fileURL.path
             
-            _entitlements = entitlements
-            return entitlements
+            do {
+                let rawEntitlements = try EntitlementsParser(path).readEntitlements().values
+                _entitlements = rawEntitlements
+                return rawEntitlements
+            } catch {
+                throw EntitlementError.failedToExtract(error)
+            }
         } catch {
             print("Error parsing entitlements: \(error)")
             _entitlements = [:]
@@ -61,24 +54,6 @@ public class Application: NSObject {
         }
     }
     
-    /// Raw entitlements string
-    public var entitlementsString: String {
-        get throws {
-            if let cached = _entitlementsString {
-                return cached
-            }
-            
-            let path = fileURL.path + "/"
-            
-            do {
-                let rawEntitlements = try EntitlementsParser.extractEntitlements(from: path)
-                _entitlementsString = rawEntitlements
-                return rawEntitlements
-            } catch {
-                throw EntitlementError.failedToExtract(error)
-            }
-        }
-    }
     
     /// Associated provisioning profile
     public var provisioningProfile: ProvisioningProfile? {
@@ -135,7 +110,6 @@ public class Application: NSObject {
     
     private let iconName: String?
     private var _entitlements: [Entitlement: Any]?
-    private var _entitlementsString: String?
     private var _provisioningProfile: ProvisioningProfile?
     
     // MARK: - Initializers
@@ -155,6 +129,8 @@ public class Application: NSObject {
               let bundleIdentifier = infoDictionary[kCFBundleIdentifierKey as String] as? String else {
             return nil
         }
+
+        // CFBundleExecutable
         
         let version = infoDictionary["CFBundleShortVersionString"] as? String ?? "1.0"
         let buildVersion = infoDictionary[kCFBundleVersionKey as String] as? String ?? "1"
@@ -176,6 +152,8 @@ public class Application: NSObject {
         self.iconName = iconName
         
         super.init()
+
+         _ = self.entitlements
     }
     
     // MARK: - Private Methods
