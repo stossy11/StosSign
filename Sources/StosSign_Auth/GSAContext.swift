@@ -162,9 +162,10 @@ extension Data {
          var iv = gsaContext.makeHMACKey("extra data iv:")
          iv = iv.count >= 16 ? iv.prefix(16) : iv
          
+        
          do {
-             let cipher = try AESCipher(key: sessionKey.bytes, iv: iv.bytes)
-             let decrypted = try cipher.decrypt(bytes: self.bytes)
+             let aes = try AES(key: sessionKey.bytes, blockMode: CBC(iv: iv.bytes), padding: .pkcs7)
+             let decrypted = try aes.decrypt(self.bytes)
              return Data(decrypted)
          } catch {
              print("AES-CBC decryption failed: \(error)")

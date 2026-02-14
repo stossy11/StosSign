@@ -237,6 +237,7 @@ public final class Signer {
                     provisionPath: extensionProvisioningPath,
                     p12Path: p12FilePath.path,
                     p12Password: "",
+                    // entitlements: entitlements,
                     customIdentifier: newBundleID
                 )
             }
@@ -246,6 +247,7 @@ public final class Signer {
                 provisionPath: provisioningPath,
                 p12Path: p12FilePath.path,
                 p12Password: "",
+                // entitlements: entitlements,
                 customIdentifier: bundleID
             )
             
@@ -292,14 +294,14 @@ extension Signer {
         p12Path: String,
         p12Password: String,
         customIdentifier: String,
-        customName: String = ""
     ) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let status = codesignAllNested(
                 appPath,
                 p12Path,
                 "",
-                provisionPath
+                provisionPath,
+                customIdentifier
             )
             
             if status == 0 {
