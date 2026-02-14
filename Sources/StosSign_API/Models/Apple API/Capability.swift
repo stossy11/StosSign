@@ -6,17 +6,17 @@
 //
 
 public struct Capability: Codable {
-    var id: String
-    var attributes: [CapabilityAttributes]
+    public var id: String
+    public var attributes: [CapabilityAttributes]
 }
 
 public struct CapabilityAttributes: Codable {
-    var entitlements: [CapabilityEntitlement]?
-    var supportsWildcard: Int
-    var validTeamTypes: [String]
+    public var entitlements: [CapabilityEntitlement]?
+    public var supportsWildcard: Int
+    public var validTeamTypes: [String]
 }
 
 public struct CapabilityEntitlement: Codable {
-    var key: String
-    var profileKey: String
+    public var key: String
+    public var profileKey: String
 }
