@@ -362,14 +362,13 @@ public final class AppleAPI {
         
         let response = try await sendEditRequest(requestURL: url, body: payload, session: session, json: true, appendClientId: false)
         
-        print(response)
+        print("Server Response: \(response)")
         
-        guard let responseDict = response["data"] as? [String: Any],
-              let appId = AppID(responseDictionary: responseDict) else {
+        guard let responseDict = response["data"] as? [String: Any] else {
             throw AppleAPIError.badServerResponse
         }
         
-        return appId
+        return appID
     }
 
     
