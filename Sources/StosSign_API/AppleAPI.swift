@@ -171,7 +171,7 @@ public final class AppleAPI {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         
-        let response = try await sendServicesRequest(originalRequest: request, additionalParameters: ["urlEncodedQueryParams": "filter[platform]=IOS"], session: session, team: team)
+        let response = try await sendServicesRequest(originalRequest: request, additionalParameters: ["filter[platform]": "IOS"], session: session, team: team)
         
         guard let data = try? JSONSerialization.data(withJSONObject: response["attributes"] ?? []) else {
             throw AppleAPIError.badServerResponse
