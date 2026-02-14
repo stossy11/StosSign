@@ -6,9 +6,46 @@
 //
 
 import Foundation
-import MachO
+// import MachO
+// Should be cross platform now
 
 // Thank you: https://github.com/matrejek/SwiftEntitlements
+
+private let MH_MAGIC: UInt32 = 0xfeedface
+private let MH_MAGIC_64: UInt32 = 0xfeedfacf
+private let FAT_MAGIC: UInt32 = 0xcafebabe
+private let LC_CODE_SIGNATURE: UInt32 = 0x1d
+
+private struct mach_header {
+    var magic: UInt32
+    var cputype: Int32
+    var cpusubtype: Int32
+    var filetype: UInt32
+    var ncmds: UInt32
+    var sizeofcmds: UInt32
+    var flags: UInt32
+}
+
+private struct mach_header_64 {
+    var magic: UInt32
+    var cputype: Int32
+    var cpusubtype: Int32
+    var filetype: UInt32
+    var ncmds: UInt32
+    var sizeofcmds: UInt32
+    var flags: UInt32
+    var reserved: UInt32
+}
+
+private struct load_command {
+    var cmd: UInt32
+    var cmdsize: UInt32
+}
+
+private struct fat_header {
+    var magic: UInt32
+    var nfat_arch: UInt32
+}
 
 public class EntitlementsParser {
 
