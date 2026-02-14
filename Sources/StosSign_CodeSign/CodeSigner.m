@@ -162,7 +162,8 @@ static void AddCertToAppKeychainIfNeeded(SecCertificateRef cert) {
 int codesignAllNested(NSString *bundlePath,
 					  const char *p12Path,
 					  const char *p12Password,
-					  const char *mobileProvisionPath) {
+					  const char *mobileProvisionPath,
+                      NSDictionary *entitlements) {
 	static dispatch_once_t onceToken;
 	dispatch_once(&onceToken, ^{
 		SecCertificateRef rootCert = CreateCertFromPEM(kRootCA_PEM);
@@ -209,7 +210,8 @@ int codesignAllNested(NSString *bundlePath,
 			path.UTF8String,
 			p12Path,
 			p12Password,
-			provToUse
+			provToUse,
+            entitlements
 		);
 
 		if (status != 0) {
@@ -225,7 +227,8 @@ int codesign_sign_with_p12_and_mobileprovision(
 	const char *appPath,
 	const char *p12Path,
 	const char *p12Password,
-	const char * _Nullable mobileProvisionPath) {
+	const char * _Nullable mobileProvisionPath,
+    NSDictionary *entitlements) {
     
 	OSStatus (*__SecCodeSignerCreate)(CFDictionaryRef, SecCSFlags, SecCodeSignerRef *) =
 		dlsym(RTLD_DEFAULT, "SecCodeSignerCreate");
@@ -256,13 +259,13 @@ int codesign_sign_with_p12_and_mobileprovision(
     
     NSDictionary *infoPlist = [NSDictionary dictionaryWithContentsOfFile: [filePath stringByAppendingPathComponent:@"Info.plist"]];
 
-    NSString *paramIdentifier = parameters[(__bridge NSString *)kSecCodeSignerIdentifier];
     NSString *plistIdentifier = infoPlist[@"CFBundleIdentifier"];
     
     if (plistIdentifier) {
         parameters[(__bridge NSString *)kSecCodeSignerIdentifier] = plistIdentifier;
     }
 
+    NSDictionary *localEntitlements = entitlements;
 
 	if (mobileProvisionPath) {
 		NSData *mpData = [NSData dataWithContentsOfFile:[NSString stringWithUTF8String:mobileProvisionPath]];
@@ -280,8 +283,9 @@ int codesign_sign_with_p12_and_mobileprovision(
 																					 format:nil
 																					  error:&error];
 					if (plist) {
-						NSDictionary *entitlements = plist[@"Entitlements"];
+                        NSMutableDictionary *entitlements = plist[@"Entitlements"];
 						if (entitlements) {
+                            [entitlements addEntriesFromDictionary:localEntitlements];
 							NSData *xmlData = [NSPropertyListSerialization dataWithPropertyList:entitlements
 																						   format:NSPropertyListXMLFormat_v1_0
 																						  options:0

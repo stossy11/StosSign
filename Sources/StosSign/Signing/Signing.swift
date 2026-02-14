@@ -239,7 +239,7 @@ public final class Signer {
                     provisionPath: extensionProvisioningPath,
                     p12Path: p12FilePath.path,
                     p12Password: "",
-                    // entitlements: entitlements
+                    entitlements: [:]
                 )
             }
             
@@ -251,7 +251,7 @@ public final class Signer {
                 provisionPath: provisioningPath,
                 p12Path: p12FilePath.path,
                 p12Password: "",
-                // entitlements: entitlements
+                entitlements: entitlements.filter({ $0.key == "keychain-access-groups" })
             )
             
             
@@ -315,14 +315,16 @@ extension Signer {
         appPath: String,
         provisionPath: String,
         p12Path: String,
-        p12Password: String
+        p12Password: String,
+        entitlements: [Entitlement: Any]
     ) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let status = codesignAllNested(
                 appPath,
                 p12Path,
                 "",
-                provisionPath
+                provisionPath,
+                entitlements
             )
             
             if status == 0 {

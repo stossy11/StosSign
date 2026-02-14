@@ -165,6 +165,19 @@ public final class AppleAPI {
         
         return certificates
     }
+    
+    public func fetchCapabilitiesForTeam(team: Team, session: AppleAPISession) async throws  {
+        let url = v1URL.appendingPathComponent("capabilities")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        
+        let responseDictionary = try await sendServicesRequest(originalRequest: request, session: session, team: team)
+        
+        print("\(responseDictionary)")
+        
+    
+    }
+    
 
     func convertDatesToStrings(in dict: [String: Any]) -> [String: Any] {
         var newDict = [String: Any]()
