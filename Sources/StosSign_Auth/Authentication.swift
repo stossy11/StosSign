@@ -244,12 +244,16 @@ public final class Authentication {
             "Request": requestParameters
         ]
         
-        let httpHeaders = [
+        var httpHeaders = [
             "Content-Type": "text/x-xml-plist",
             "X-MMe-Client-Info": anisetteData.deviceDescription,
             "Accept": "*/*",
             "User-Agent": "akd/1.0 CFNetwork/978.0.7 Darwin/18.7.0"
         ]
+        
+        if requestParameters["o"] as? String == "complete" {
+            httpHeaders["Connection"] = "close"
+        }
         
         let bodyData = try PropertyListSerialization.data(
             fromPropertyList: parameters,
