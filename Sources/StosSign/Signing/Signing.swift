@@ -184,10 +184,12 @@ public final class Signer {
         self.certificate = certificate
     }
     
-    public func signApp(at appURL: URL, originalBID: String = "", entitlements: [Entitlement : Any], provisioningProfiles profiles: [ProvisioningProfile]) async throws  {
+    public func signApp(at appURL: URL? = nil, application: Application?, entitlements: [Entitlement : Any], provisioningProfiles profiles: [ProvisioningProfile]) async throws  {
         let progress = Progress(totalUnitCount: 1)
         
-        guard var application = Application(fileURL: appURL) else {
+        let appURL = appURL ?? application!.fileURL
+        
+        guard var application = application ?? Application(fileURL: appURL) else {
             throw SigningError.invalidApp
         }
         
@@ -195,7 +197,6 @@ public final class Signer {
         if !bundleID.hasSuffix(team.identifier) {
             bundleID += "." + team.identifier
         }
-        
         
         progress.totalUnitCount = Int64(FileManager.default.subpaths(atPath: appURL.path)?.count ?? 0)
         
@@ -228,14 +229,8 @@ public final class Signer {
                 
                 let extensionProvisioningPath = try saveProvisioningProfile(extensionProfile)
                 
-                var originalBundleID: String = originalBID
-                if !originalBID.isEmpty {
-                    originalBundleID = originalBID
-                } else if bundleID.hasPrefix(team.identifier) {
-                    originalBundleID = bundleID.replacingOccurrences(of: team.identifier, with: "")
-                }
+                let newBundleID = appExtension.bundleIdentifier.hasPrefix(bundleID) ? appExtension.bundleIdentifier : appExtension.bundleIdentifier.replacingOccurrences(of: application.bundleIdentifier, with: bundleID)
                 
-                let newBundleID = appExtension.bundleIdentifier.hasPrefix(bundleID) ? appExtension.bundleIdentifier : appExtension.bundleIdentifier.replacingOccurrences(of: originalBundleID, with: bundleID)
                 print("signing app extension \(newBundleID)")
                 try await Signer.signAsync(
                     appPath: appExtension.fileURL.path,
