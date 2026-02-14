@@ -162,8 +162,7 @@ static void AddCertToAppKeychainIfNeeded(SecCertificateRef cert) {
 int codesignAllNested(NSString *bundlePath,
 					  const char *p12Path,
 					  const char *p12Password,
-					  const char *mobileProvisionPath,
-                      NSString * _Nullable bundleID)
+					  const char *mobileProvisionPath)
 {
 	static dispatch_once_t onceToken;
 	dispatch_once(&onceToken, ^{
@@ -211,8 +210,7 @@ int codesignAllNested(NSString *bundlePath,
 			path.UTF8String,
 			p12Path,
 			p12Password,
-			provToUse,
-            bundleID.UTF8String
+			provToUse
 		);
 
 		if (status != 0) {
@@ -228,9 +226,7 @@ int codesign_sign_with_p12_and_mobileprovision(
 	const char *appPath,
 	const char *p12Path,
 	const char *p12Password,
-	const char * _Nullable mobileProvisionPath,
-    const char * _Nullable bundleID
-) {
+	const char * _Nullable mobileProvisionPath) {
 	OSStatus (*__SecCodeSignerCreate)(CFDictionaryRef, SecCSFlags, SecCodeSignerRef *) =
 		dlsym(RTLD_DEFAULT, "SecCodeSignerCreate");
 	OSStatus (*__SecCodeSignerAddSignatureWithErrors)(SecCodeSignerRef, SecStaticCodeRef, SecCSFlags, CFErrorRef *) =
@@ -258,8 +254,13 @@ int codesign_sign_with_p12_and_mobileprovision(
 	NSMutableDictionary *parameters = [NSMutableDictionary dictionary];
 	parameters[(__bridge NSString *)kSecCodeSignerIdentity] = (__bridge id)identity;
     
-    if (bundleID) {
-        parameters[(__bridge NSString *)kSecCodeSignerIdentifier] = [NSString stringWithUTF8String:bundleID];
+    NSDictionary *infoPlist = [NSDictionary dictionaryWithContentsOfFile: [filePath stringByAppendingPathComponent:@"Info.plist"]];
+
+    NSString *paramIdentifier = parameters[(__bridge NSString *)kSecCodeSignerIdentifier];
+    NSString *plistIdentifier = infoPlist[@"CFBundleIdentifier"];
+    
+    if (plistIdentifier) {
+        parameters[(__bridge NSString *)kSecCodeSignerIdentifier] = plistIdentifier;
     }
 
 
