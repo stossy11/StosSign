@@ -493,12 +493,12 @@ public final class AppleAPI {
         
         let groupIDs = groups.map { $0.identifier }
         
-        let parameters: [String: Any] = [
+        let parameters: [String: String] = [
             "appIdId": appID.identifier,
-            "applicationGroups": groupIDs
+            "applicationGroups": groupIDs.joined(separator: ",")
         ]
         
-        let response = try await sendRequestWithURL(requestURL: url, additionalParameters: parameters.mapValues { ($0 as? [String])?.joined(separator: ",") ?? "" }, session: session, team: team)
+        let response = try await sendRequestWithURL(requestURL: url, additionalParameters: parameters, session: session, team: team)
         
         if let resultCode = response["resultCode"] as? Int {
             switch resultCode {
@@ -509,6 +509,7 @@ public final class AppleAPI {
             case 0:
                 return true
             default:
+                print(response)
                 throw AppleAPIError.unknown
             }
         }

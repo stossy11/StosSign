@@ -137,7 +137,7 @@ public final class Certificate {
         return CertificateParser.parseCerts(pemData)
     }
     
-    private static func createP12(certificate: Data, privateKey: Data, password: String) -> Data? {
+    public static func createP12(certificate: Data, privateKey: Data, password: String) -> Data? {
 #if canImport(StosOpenSSL)
         OpenSSL_add_all_algorithms()
         
