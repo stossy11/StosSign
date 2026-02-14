@@ -101,7 +101,7 @@ extension AppleAPI {
     public func updateAppID(_ appID: AppID, team: Team, session: AppleAPISession, completionHandler: @escaping (AppID?, Error?) -> Void) {
         Task {
             do {
-                let updatedAppID = try await updateAppID(appID, team: team, session: session)
+                let updatedAppID = try await qHupdateAppID(appID, team: team, session: session)
                 completionHandler(updatedAppID, nil)
             } catch {
                 completionHandler(nil, error)
