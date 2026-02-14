@@ -256,14 +256,6 @@ int codesign_sign_with_p12_and_mobileprovision(
 
 	NSMutableDictionary *parameters = [NSMutableDictionary dictionary];
 	parameters[(__bridge NSString *)kSecCodeSignerIdentity] = (__bridge id)identity;
-    
-    NSDictionary *infoPlist = [NSDictionary dictionaryWithContentsOfFile: [filePath stringByAppendingPathComponent:@"Info.plist"]];
-
-    NSString *plistIdentifier = infoPlist[@"CFBundleIdentifier"];
-    
-    if (plistIdentifier) {
-        parameters[(__bridge NSString *)kSecCodeSignerIdentifier] = plistIdentifier;
-    }
 
     NSDictionary *localEntitlements = entitlements;
 
