@@ -231,6 +231,8 @@ public final class Signer {
                 
                 let newBundleID = appExtension.bundleIdentifier.hasPrefix(bundleID) ? appExtension.bundleIdentifier : appExtension.bundleIdentifier.replacingOccurrences(of: application.bundleIdentifier, with: bundleID)
                 
+                updatePlistValue(fileURL: appExtension.fileURL.appendingPathComponent("Info.plist"), key: "CFBundleIdentifier", newValue: newBundleID)
+                
                 print("signing app extension \(newBundleID)")
                 try await Signer.signAsync(
                     appPath: appExtension.fileURL.path,
@@ -241,6 +243,9 @@ public final class Signer {
                     customIdentifier: newBundleID
                 )
             }
+            
+            
+            updatePlistValue(fileURL: appURL.appendingPathComponent("Info.plist"), key: "CFBundleIdentifier", newValue: bundleID)
             
             try await Signer.signAsync(
                 appPath: appURL.path,
@@ -256,6 +261,26 @@ public final class Signer {
             throw SigningError.unknown(error.localizedDescription)
         }
         
+    }
+    
+    func updatePlistValue(fileURL: URL, key: String, newValue: Any) {
+        do {
+            let data = try Data(contentsOf: fileURL)
+            
+            guard var plist = try PropertyListSerialization.propertyList(from: data, options: .mutableContainersAndLeaves, format: nil) as? [String: Any] else {
+                return
+            }
+
+            plist[key] = newValue
+
+            let updatedData = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+
+            try updatedData.write(to: fileURL, options: .atomic)
+            print("Successfully updated \(key)!")
+            
+        } catch {
+            print("Error: \(error.localizedDescription)")
+        }
     }
 }
 
