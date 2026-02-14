@@ -12,7 +12,7 @@ public struct Capability: Codable {
 
 public struct CapabilityAttributes: Codable {
     public var entitlements: [CapabilityEntitlement]?
-    public var supportsWildcard: Int
+    public var supportsWildcard: Bool
     public var validTeamTypes: [String]
 }
 
