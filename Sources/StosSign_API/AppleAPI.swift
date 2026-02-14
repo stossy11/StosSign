@@ -367,7 +367,7 @@ public final class AppleAPI {
             ]
         ]
         
-        let response = try await sendEditRequest(requestURL: url, body: payload, session: session, appendClientId: false)
+        let response = try await sendEditRequest(requestURL: url, body: payload, session: session)
         
         print(response)
         
@@ -634,10 +634,7 @@ public final class AppleAPI {
             return [:]
         }
         
-        guard let responseDictionary = try JSONSerialization.jsonObject(
-            with: data,
-            options: []
-        ) as? [String: Any] else {
+        guard let responseDictionary = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] ?? (try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any]) else {
             throw AppleAPIError.badServerResponse
         }
         
@@ -686,7 +683,7 @@ public final class AppleAPI {
         
         let (data, _) = try await self.session.data(for: request)
         
-        guard let responseDictionary = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] else {
+        guard let responseDictionary = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] ?? (try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any]) else {
             throw AppleAPIError.badServerResponse
         }
         
@@ -748,7 +745,7 @@ public final class AppleAPI {
         
         let (data, _) = try await self.session.data(for: request)
         
-        guard let responseDictionary = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] else {
+        guard let responseDictionary = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] ?? (try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any]) else {
             throw AppleAPIError.badServerResponse
         }
         
