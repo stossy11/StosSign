@@ -660,9 +660,9 @@ public final class AppleAPI {
         request.httpBody = bodyData
         
         let httpHeaders: [String: String] = [
-            "Content-Type": "text/x-xml-plist",
+            "Content-Type": json ? "application/vnd.api+json" : "text/x-xml-plist",
             "User-Agent": "Xcode",
-            "Accept": "text/x-xml-plist",
+            "Accept": json ? "application/json, text/plain, */*" : "text/x-xml-plist",
             "Accept-Language": "en-us",
             "X-Apple-App-Info": "com.apple.gs.xcode.auth",
             "X-Xcode-Version": "11.2 (11B41)",
@@ -688,7 +688,6 @@ public final class AppleAPI {
         
         if json {
             guard let responseDictionary = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
-                print(String(data: data, encoding: .utf8))
                 throw AppleAPIError.badServerResponse
             }
             
