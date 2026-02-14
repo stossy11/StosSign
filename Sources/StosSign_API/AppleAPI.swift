@@ -454,52 +454,6 @@ public final class AppleAPI {
         throw AppleAPIError.badServerResponse
     }
     
-    public func addCapabilies(_ capabilities: [String], appID: AppID, team: Team, session: AppleAPISession) async throws -> Bool {
-        let bundleIdCapabilitiesData: [[String: Any]] = capabilities.map { capability in
-            [
-                "relationships": [
-                    "capability": [
-                        "data": [
-                            "id": capability,
-                            "type": "capabilities"
-                        ]
-                    ]
-                ],
-                "type": "bundleIdCapabilities",
-                "attributes": [
-                    "settings": [],
-                    "enabled": true
-                ]
-            ]
-        }
-
-        
-        let dict: [String: Any] = [
-            "data": [
-                "relationships": [
-                    "bundleIdCapabilities": [
-                        "data": bundleIdCapabilitiesData
-                    ]
-                ],
-                "id": appID.identifier,
-                "attributes": [
-                    "hasExclusiveManagedCapabilities": false,
-                    "teamId": team.identifier,
-                    "bundleType": "bundle",
-                    "identifier": appID.bundleIdentifier,
-                    "seedId": team.identifier,
-                    "name": appID.name
-                ],
-                "type": "bundleIds"
-            ]
-        ]
-
-        let result = try await self.sendEditRequest(requestURL: v1URL.appendingPathComponent("bundleIds/\(appID.identifier)"), body: dict, session: session)
-        
-        return !result.isEmpty
-    }
-    
-    
     public func fetchProvisioningProfileForAppID(appID: AppID, deviceType: DeviceType, team: Team, session: AppleAPISession) async throws -> ProvisioningProfile {
         let url = qhURL.appendingPathComponent("ios/downloadTeamProvisioningProfile.action")
         
