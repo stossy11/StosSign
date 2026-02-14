@@ -7,7 +7,7 @@
 
 public struct Capability: Codable {
     public var id: String
-    public var attributes: [CapabilityAttributes]
+    public var attributes: CapabilityAttributes
 }
 
 public struct CapabilityAttributes: Codable {
