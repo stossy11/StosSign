@@ -367,7 +367,9 @@ public final class AppleAPI {
             ]
         ]
         
-        let response = try await sendEditRequest(requestURL: url, body: payload, session: session)
+        let response = try await sendEditRequest(requestURL: url, body: payload, session: session, appendClientId: false)
+        
+        print(response)
         
         guard let responseDict = response["data"] as? [String: Any],
               let appId = AppID(responseDictionary: responseDict) else {
@@ -642,11 +644,13 @@ public final class AppleAPI {
         return responseDictionary
     }
     
-    public func sendEditRequest(requestURL: URL, body: [String: Any], session: AppleAPISession) async throws -> [String : Any] {
+    public func sendEditRequest(requestURL: URL, body: [String: Any], session: AppleAPISession, appendClientId: Bool = true) async throws -> [String : Any] {
         let bodyData = try PropertyListSerialization.data(fromPropertyList: body, format: .xml, options: 0)
         
         var urlString = requestURL.absoluteString
-        urlString.append("?clientId=\(clientID)")
+        if appendClientId {
+            urlString.append("?clientId=\(clientID)")
+        }
         guard let url = URL(string: urlString) else {
             throw AppleAPIError.invalidParameters
         }
