@@ -330,24 +330,18 @@ public final class AppleAPI {
     public func updateAppID(_ appID: AppID, capabilities: [String], team: Team, session: AppleAPISession) async throws -> AppID {
         let url = v1URL.appendingPathComponent("bundleIds").appendingPathComponent(appID.identifier)
         
-        let capabilties = capabilities.map({ capabilityId in
+        let capabilitiesPayload: [[String: Any]] = capabilities.map { capabilityId in
             [
                 "type": "bundleIdCapabilities",
-                "attributes": [
-                    "enabled": true,
-                    "settings": []
-                ],
+                "attributes": ["enabled": true, "settings": []],
                 "relationships": [
                     "capability": [
-                        "data": [
-                            "type": "capabilities",
-                            "id": capabilityId
-                        ]
+                        "data": ["type": "capabilities", "id": capabilityId]
                     ]
                 ]
             ]
-        })
-        
+        }
+
         let payload: [String: Any] = [
             "data": [
                 "type": "bundleIds",
@@ -361,9 +355,7 @@ public final class AppleAPI {
                     "hasExclusiveManagedCapabilities": false
                 ],
                 "relationships": [
-                    "bundleIdCapabilities": [
-                        "data": capabilties
-                    ]
+                    "bundleIdCapabilities": ["data": capabilitiesPayload]
                 ]
             ]
         ]
