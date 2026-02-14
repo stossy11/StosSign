@@ -367,7 +367,7 @@ public final class AppleAPI {
             ]
         ]
         
-        let response = try await sendEditRequest(requestURL: url, body: payload, session: session, json: true, appendClientId: false)
+        let response = try await sendEditRequest(requestURL: url, body: payload, session: session)
         
         print(response)
         
@@ -634,17 +634,14 @@ public final class AppleAPI {
             return [:]
         }
         
-        guard let responseDictionary = try JSONSerialization.jsonObject(
-            with: data,
-            options: []
-        ) as? [String: Any] else {
+        guard let responseDictionary = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] ?? (try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any]) else {
             throw AppleAPIError.badServerResponse
         }
         
         return responseDictionary
     }
     
-    public func sendEditRequest(requestURL: URL, body: [String: Any], session: AppleAPISession, json: Bool = false, appendClientId: Bool = true) async throws -> [String : Any] {
+    public func sendEditRequest(requestURL: URL, body: [String: Any], session: AppleAPISession, appendClientId: Bool = true) async throws -> [String : Any] {
         let bodyData = try PropertyListSerialization.data(fromPropertyList: body, format: .xml, options: 0)
         
         var urlString = requestURL.absoluteString
@@ -686,19 +683,11 @@ public final class AppleAPI {
         
         let (data, _) = try await self.session.data(for: request)
         
-        if json {
-            guard let responseDictionary = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
-                throw AppleAPIError.badServerResponse
-            }
-            
-            return responseDictionary
-        } else {
-            guard let responseDictionary = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] else {
-                throw AppleAPIError.badServerResponse
-            }
-            
-            return responseDictionary
+        guard let responseDictionary = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] ?? (try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any]) else {
+            throw AppleAPIError.badServerResponse
         }
+        
+        return responseDictionary
     }
     
     
@@ -756,7 +745,7 @@ public final class AppleAPI {
         
         let (data, _) = try await self.session.data(for: request)
         
-        guard let responseDictionary = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] else {
+        guard let responseDictionary = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] ?? (try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any]) else {
             throw AppleAPIError.badServerResponse
         }
         
