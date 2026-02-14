@@ -166,16 +166,20 @@ public final class AppleAPI {
         return certificates
     }
     
-    public func fetchCapabilitiesForTeam(team: Team, session: AppleAPISession) async throws  {
+    public func fetchCapabilitiesForTeam(team: Team, session: AppleAPISession) async throws -> [Capability] {
         let url = v1URL.appendingPathComponent("capabilities")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         
-        let responseDictionary = try await sendServicesRequest(originalRequest: request, session: session, team: team)
+        let response = try await sendServicesRequest(originalRequest: request, additionalParameters: ["urlEncodedQueryParams": "filter[platform]=IOS"], session: session, team: team)
         
-        print("\(responseDictionary)")
+        guard let data = try? JSONSerialization.data(withJSONObject: response["attributes"] ?? []) else {
+            throw AppleAPIError.badServerResponse
+        }
         
-    
+        let capabilities = try JSONDecoder().decode([Capability].self, from: data)
+        
+        return capabilities
     }
     
 
@@ -323,7 +327,58 @@ public final class AppleAPI {
         return appID
     }
     
-    public func updateAppID(_ appID: AppID, team: Team, session: AppleAPISession) async throws -> AppID {
+    public func updateAppID(_ appID: AppID, capabilities: [String], team: Team, session: AppleAPISession) async throws -> AppID {
+        let url = v1URL.appendingPathComponent("bundleIds").appendingPathComponent(appID.identifier)
+        
+        let capabilties = capabilities.map({
+            [
+                "type": "bundleIdCapabilities",
+                "attributes": [
+                    "enabled": true,
+                    "settings": []
+                ],
+                "relationships": [
+                    "capability": [
+                        "data": [
+                            "type": "capabilities",
+                            "id": $0
+                        ]
+                    ]
+                ]
+            ]
+        })
+        
+        let payload: [String: Any] = [
+            "data": [
+                "type": "bundleIds",
+                "id": appID.identifier,
+                "attributes": [
+                    "identifier": appID.bundleIdentifier,
+                    "teamId": team.identifier,
+                    "seedId": team.identifier,
+                    "bundleType": "Bundle",
+                    "name": appID.name,
+                ],
+                "relationships": [
+                    "bundleIdCapabilities": [
+                        "data": capabilties
+                    ]
+                ]
+            ]
+        ]
+        
+        let response = try await sendEditRequest(requestURL: url, body: payload, session: session)
+        
+        guard let responseDict = response["data"] as? [String: Any],
+              let appId = AppID(responseDictionary: responseDict) else {
+            throw AppleAPIError.badServerResponse
+        }
+        
+        return appId
+    }
+
+    
+    public func qHupdateAppID(_ appID: AppID, team: Team, session: AppleAPISession) async throws -> AppID {
         let url = qhURL.appendingPathComponent("ios/updateAppId.action")
         
         var parameters: [String: Any] = ["appIdId": appID.identifier]
