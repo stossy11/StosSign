@@ -645,7 +645,7 @@ public final class AppleAPI {
     }
     
     public func sendEditRequest(requestURL: URL, body: [String: Any], session: AppleAPISession, json: Bool = false, appendClientId: Bool = true) async throws -> [String : Any] {
-        let bodyData = try PropertyListSerialization.data(fromPropertyList: body, format: .xml, options: 0)
+        let bodyData = json ? try JSONSerialization.data(withJSONObject: body) : try PropertyListSerialization.data(fromPropertyList: body, format: .xml, options: 0)
         
         var urlString = requestURL.absoluteString
         if appendClientId {
