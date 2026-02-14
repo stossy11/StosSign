@@ -11,6 +11,15 @@
         }
       },
       {
+        "package": "CryptoSwift",
+        "repositoryURL": "https://github.com/krzyzanowskim/CryptoSwift",
+        "state": {
+          "branch": null,
+          "revision": "e45a26384239e028ec87fbcc788f513b67e10d8f",
+          "version": "1.9.0"
+        }
+      },
+      {
         "package": "OpenSSL",
         "repositoryURL": "https://github.com/krzyzanowskim/OpenSSL",
         "state": {

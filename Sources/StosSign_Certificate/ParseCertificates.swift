@@ -14,6 +14,8 @@ public class CertificateParser {
         
         let certificate: X509.Certificate
         
+        
+        
         if let certDer = try? X509.Certificate(derEncoded: bytes) {
             certificate = certDer
         } else if let pemString = String(data: cert, encoding: .utf8),

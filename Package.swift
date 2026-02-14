@@ -37,6 +37,7 @@ let package = Package(
         .package(url: "https://github.com/adam-fowler/swift-srp.git", revision: "ce202c48f8ca68f44b71732f945eb8221d6fe135"),
         .package(url: "https://github.com/krzyzanowskim/OpenSSL", from: "3.3.3001"),
         .package(url: "https://github.com/apple/swift-certificates.git", from: "1.0.0"),
+        .package(url: "https://github.com/krzyzanowskim/CryptoSwift", from: "1.9.0")
     ],
     targets: [
         .target(
@@ -71,6 +72,7 @@ let package = Package(
             name: "StosSign_Auth",
             dependencies: [
                 .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "CryptoSwift", package: "CryptoSwift"),
                 .product(name: "SRP", package: "swift-srp"),
                 .product(name: "X509", package: "swift-certificates"),
                 "StosSign_API",
