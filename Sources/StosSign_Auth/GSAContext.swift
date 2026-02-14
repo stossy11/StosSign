@@ -64,7 +64,7 @@ public final class GSAContext {
             sessionKey = Data(sharedSecret.bytes)
             
             let clientProof = client.calculateClientProof(
-                // username: username,
+                username: username,
                 salt: salt.bytes,
                 clientPublicKey: clientKeys.public,
                 serverPublicKey: serverPublicKey,
@@ -79,6 +79,8 @@ public final class GSAContext {
             return nil
         }
     }
+    
+    
     
     public func verifyServerVerificationMessage(_ serverProof: Data) -> Bool {
         guard !serverProof.isEmpty,
@@ -194,52 +196,6 @@ extension Data {
     }
 }
 
-extension SRPClient {
-    public func calculateClientProof(
-        // username: String,
-        salt: [UInt8],
-        clientPublicKey: SRPKey,
-        serverPublicKey: SRPKey,
-        sharedSecret: SRPKey
-    ) -> [UInt8] {
-        let clientPublicKey = clientPublicKey.with(padding: configuration.sizeN)
-        let serverPublicKey = serverPublicKey.with(padding: configuration.sizeN)
-        let sharedSecret = sharedSecret.with(padding: configuration.sizeN)
-        let hashSharedSecret = [UInt8](H.hash(data: sharedSecret.bytes))
-        // get verification code
-        return SRP<H>.calculateClientProof(
-            configuration: configuration,
-            // username: username,
-            salt: salt,
-            clientPublicKey: clientPublicKey,
-            serverPublicKey: serverPublicKey,
-            hashSharedSecret: hashSharedSecret
-        )
-    }
-}
-
-extension SRP {
-    static func calculateClientProof(
-        configuration: SRPConfiguration<H>,
-        salt: [UInt8],
-        clientPublicKey: SRPKey,
-        serverPublicKey: SRPKey,
-        hashSharedSecret: [UInt8]
-    ) -> [UInt8] {
-        let hashN = [UInt8](H.hash(data: configuration.N.bytes))
-        let hashG = [UInt8](H.hash(data: configuration.g.bytes.pad(to: configuration.sizeN)))
-        
-        let N_xor_g = zip(hashN, hashG).map { $0 ^ $1 }
-        
-        let M1 = N_xor_g + salt
-        
-        let M2 = clientPublicKey.bytes + serverPublicKey.bytes + hashSharedSecret
-        
-        let M = H.hash(data: M1 + M2)
-        return [UInt8](M)
-    }
-}
-
 extension Crypto.Digest {
     func hexadecimal() -> String {
         map { String(format: "%02hhx", $0) }.joined()
@@ -247,12 +203,3 @@ extension Crypto.Digest {
 }
 
 
-extension Array where Element == UInt8 {
-    func pad(to size: Int) -> [UInt8] {
-        let padSize = size - count
-        guard padSize > 0 else { return self }
-        // create prefix and return prefix + data
-        let prefix: [UInt8] = (1 ... padSize).reduce([]) { result, _ in result + [0] }
-        return prefix + self
-    }
-}

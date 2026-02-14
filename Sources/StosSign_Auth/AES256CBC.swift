@@ -552,7 +552,7 @@ extension AESCipher {
         var p: UInt8 = 1, q: UInt8 = 1
 
         repeat {
-            p = p ^ (UInt8(Int(p) << 1) ^ ((p & 0x80) == 0x80 ? 0x1B : 0))
+            p = p ^ (UInt8(truncatingIfNeeded: Int(p) << 1) ^ ((p & 0x80) == 0x80 ? 0x1B : 0))
             q ^= q << 1
             q ^= q << 2
             q ^= q << 4
