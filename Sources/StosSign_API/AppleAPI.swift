@@ -687,7 +687,8 @@ public final class AppleAPI {
         let (data, _) = try await self.session.data(for: request)
         
         if json {
-            guard let responseDictionary = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] ?? (try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any]) else {
+            guard let responseDictionary = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
+                print(String(data: data, encoding: .utf8))
                 throw AppleAPIError.badServerResponse
             }
             
