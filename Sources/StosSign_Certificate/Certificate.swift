@@ -21,13 +21,16 @@ public final class Certificate {
     public var identifier: String?
     public var expirationDate: Date?
     
-    public init(name: String, serialNumber: String, expirationDate: Date? = nil, identifier: String? = nil, machineName: String? = nil, machineIdentifier: String? = nil, data: Data? = nil, privateKey: Data? = nil) {
+    public var certificateType: String?
+    
+    public init(name: String, serialNumber: String, expirationDate: Date? = nil, identifier: String? = nil, machineName: String? = nil, machineIdentifier: String? = nil, data: Data? = nil, privateKey: Data? = nil, certificateType: String? = nil) {
         self.name = name
         self.serialNumber = serialNumber
         self.identifier = identifier
         self.machineName = machineName
         self.machineIdentifier = machineIdentifier
         self.expirationDate = expirationDate
+        self.certificateType = certificateType
         
         if privateKey == nil, let data {
             guard let components = Self.parseP12Data(p12Data: data, password: "") else {
@@ -89,20 +92,20 @@ public final class Certificate {
         let machineIdentifier = Self.extractString(attributes["machineId"])
         let identifier2 = Self.extractString(response["id"])
         let identifier = identifier2 ?? Self.extractString(attributes["certificateId"])
-        
-        
+        let certificateType = Self.extractString(attributes["certificateId"])
         
         if let data = certificateData, let certificate = Certificate(certificateData: data) {
             self.init(
                 name: certificate.name,
                 serialNumber: certificate.serialNumber,
-                data: certificate.data
+                data: certificate.data,
+                certificateType: certificateType
             )
         } else {
             let name = Self.extractString(attributes["name"]) ?? ""
             let serial = Self.extractString(attributes["serialNumber"]) ??
                         Self.extractString(attributes["serialNum"]) ?? ""
-            self.init(name: name, serialNumber: serial, data: nil)
+            self.init(name: name, serialNumber: serial, data: nil, certificateType: certificateType)
         }
         
         if let expirationDate = Self.extractString(attributes["expirationDate"])  {
