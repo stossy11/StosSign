@@ -166,6 +166,29 @@ public final class AppleAPI {
         return certificates
     }
     
+    public func fetchAllDeviceCertificatesForTeam(team: Team, session: AppleAPISession) async throws -> [Certificate] {
+        let url = v1URL.appendingPathComponent("certificates")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        
+        let responseDictionary = try await sendServicesRequest(originalRequest: request, session: session, team: team)
+        
+        guard let data = responseDictionary["data"] as? [[String: Any]] else {
+            print("Failed to parse certificates response: \(String(describing: responseDictionary))")
+            throw AppleAPIError.badServerResponse
+        }
+
+        print("Certificates Response: \(data)")
+        
+        let certificates = data.compactMap { dict -> Certificate? in
+            print(dict)
+            return Certificate(response: dict)
+        }
+        
+        return certificates
+    }
+    
+    
     public func fetchCapabilitiesForTeam(team: Team, session: AppleAPISession) async throws -> [Capability] {
         let url = v1URL.appendingPathComponent("capabilities")
         var request = URLRequest(url: url)
