@@ -92,7 +92,7 @@ public final class Certificate {
         let machineIdentifier = Self.extractString(attributes["machineId"])
         let identifier2 = Self.extractString(response["id"])
         let identifier = identifier2 ?? Self.extractString(attributes["certificateId"])
-        let certificateType = Self.extractString(attributes["certificateId"])
+        let certificateType = Self.extractString(attributes["certificateType"])
         
         if let data = certificateData, let certificate = Certificate(certificateData: data) {
             self.init(
