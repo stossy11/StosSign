@@ -43,6 +43,9 @@ public final class AppleAPI {
                     throw AppleAPIError.customError(code: resultCode, message: localizedDescription)
                 }
             } else {
+                if let data = response["error"] as? String {
+                    throw AppleAPIError.customError(code: 0, message: data)
+                }
                 throw AppleAPIError.badServerResponse
             }
         }
@@ -84,6 +87,9 @@ public final class AppleAPI {
                     throw AppleAPIError.customError(code: resultCode, message: localizedDescription)
                 }
             } else {
+                if let data = response["error"] as? String {
+                    throw AppleAPIError.customError(code: 0, message: data)
+                }
                 throw AppleAPIError.badServerResponse
             }
         }
@@ -120,6 +126,9 @@ public final class AppleAPI {
                     throw AppleAPIError.customError(code: result, message: localizedDescription)
                 }
             } else {
+                if let data = response["error"] as? String {
+                    throw AppleAPIError.customError(code: 0, message: data)
+                }
                 throw AppleAPIError.badServerResponse
             }
         }
@@ -140,6 +149,9 @@ public final class AppleAPI {
                     throw AppleAPIError.customError(code: resultCode, message: localizedDescription)
                 }
             } else {
+                if let data = response["error"] as? String {
+                    throw AppleAPIError.customError(code: 0, message: data)
+                }
                 throw AppleAPIError.badServerResponse
             }
         }
@@ -154,6 +166,12 @@ public final class AppleAPI {
         
         guard let data = responseDictionary["data"] as? [[String: Any]] else {
             print("Failed to parse certificates response: \(String(describing: responseDictionary))")
+            if let data = responseDictionary["error"] as? String {
+                throw AppleAPIError.customError(code: 0, message: data)
+            }
+            if let data = responseDictionary["error"] as? String {
+                throw AppleAPIError.customError(code: 0, message: data)
+            }
             throw AppleAPIError.badServerResponse
         }
 
@@ -175,6 +193,9 @@ public final class AppleAPI {
         
         guard let data = responseDictionary["data"] as? [[String: Any]] else {
             print("Failed to parse certificates response: \(String(describing: responseDictionary))")
+            if let data = responseDictionary["error"] as? String {
+                throw AppleAPIError.customError(code: 0, message: data)
+            }
             throw AppleAPIError.badServerResponse
         }
 
@@ -197,6 +218,9 @@ public final class AppleAPI {
         let response = try await sendServicesRequest(originalRequest: request, additionalParameters: ["filter[platform]": "IOS"], session: session, team: team)
         
         guard let data = try? JSONSerialization.data(withJSONObject: response["data"] ?? []) else {
+            if let data = response["error"] as? String {
+                throw AppleAPIError.customError(code: 0, message: data)
+            }
             throw AppleAPIError.badServerResponse
         }
         
@@ -256,10 +280,16 @@ public final class AppleAPI {
                 case 7460:
                     throw AppleAPIError.customError(code: 7460, message: "You already have a current iOS Development certificate or a pending certificate request.")
                 default:
-                    throw AppleAPIError.badServerResponse
+                    if let data = responseDictionary["error"] as? String {
+                throw AppleAPIError.customError(code: 0, message: data)
+            }
+            throw AppleAPIError.badServerResponse
                 }
             }
 
+            if let data = responseDictionary["error"] as? String {
+                throw AppleAPIError.customError(code: 0, message: data)
+            }
             throw AppleAPIError.badServerResponse
         }
         
@@ -267,6 +297,9 @@ public final class AppleAPI {
         print("Certificate Request Response: \(certRequestDict)")
         
         guard let certificate = Certificate(response: certRequestDict, certData: csr) else {
+            if let data = responseDictionary["error"] as? String {
+                throw AppleAPIError.customError(code: 0, message: data)
+            }
             throw AppleAPIError.badServerResponse
         }
         
@@ -289,14 +322,13 @@ public final class AppleAPI {
         let response = try await sendRequestWithURL(requestURL: url, additionalParameters: nil, session: session, team: team)
         
         guard let array = response["appIds"] as? [[String: Any]] else {
+            if let data = response["error"] as? String {
+                throw AppleAPIError.customError(code: 0, message: data)
+            }
             throw AppleAPIError.badServerResponse
         }
         
         let appIDs = array.compactMap { AppID(responseDictionary: $0) }
-        
-        if appIDs.isEmpty {
-            throw AppleAPIError.badServerResponse
-        }
         
         return appIDs
     }
@@ -340,6 +372,9 @@ public final class AppleAPI {
                 }
             }
             
+            if let data = response["error"] as? String {
+                throw AppleAPIError.customError(code: 0, message: data)
+            }
             throw AppleAPIError.badServerResponse
         }
         
@@ -387,7 +422,10 @@ public final class AppleAPI {
         
         print("Server Response: \(response)")
         
-        guard let responseDict = response["data"] as? [String: Any] else {
+        guard let _ = response["data"] as? [String: Any] else {
+            if let data = response["error"] as? String {
+                throw AppleAPIError.customError(code: 0, message: data)
+            }
             throw AppleAPIError.badServerResponse
         }
         
@@ -433,6 +471,9 @@ public final class AppleAPI {
                 }
             }
             
+            if let data = response["error"] as? String {
+                throw AppleAPIError.customError(code: 0, message: data)
+            }
             throw AppleAPIError.badServerResponse
         }
         
@@ -473,15 +514,14 @@ public final class AppleAPI {
         let response = try await sendRequestWithURL(requestURL: url, additionalParameters: nil, session: session, team: team)
         
         guard let data = try? JSONSerialization.data(withJSONObject: response["applicationGroupList"] ?? []) else {
+            if let data = response["error"] as? String {
+                throw AppleAPIError.customError(code: 0, message: data)
+            }
             throw AppleAPIError.badServerResponse
         }
         
         let groups = try JSONDecoder().decode([AppGroup].self, from: data)
-        
-        if groups.isEmpty {
-            throw AppleAPIError.badServerResponse
-        }
-        
+
         return groups
     }
     
@@ -500,6 +540,9 @@ public final class AppleAPI {
                 throw AppleAPIError.invalidAppGroup
             }
             
+            if let data = response["error"] as? String {
+                throw AppleAPIError.customError(code: 0, message: data)
+            }
             throw AppleAPIError.badServerResponse
         }
         
@@ -562,6 +605,9 @@ public final class AppleAPI {
         }
         
         guard let dictionary = response["provisioningProfile"] as? [String: Any] else {
+            if let data = response["error"] as? String {
+                throw AppleAPIError.customError(code: 0, message: data)
+            }
             throw AppleAPIError.badServerResponse
         }
         
@@ -785,6 +831,9 @@ public final class AppleAPI {
         let response = try await sendRequestWithURL(requestURL: url, additionalParameters: nil, session: session, team: nil)
         
         guard let dictionary = response["developer"] as? [String: Any] else {
+            if let data = response["error"] as? String {
+                throw AppleAPIError.customError(code: 0, message: data)
+            }
             throw AppleAPIError.badServerResponse
         }
         
