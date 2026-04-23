@@ -9,7 +9,7 @@ import Foundation
 #if canImport(Security)
 import StosSign_CodeSign
 #else
-import ZsignSwift
+import Zsign
 #endif
 
 typealias EVP_PKEY = OpaquePointer
