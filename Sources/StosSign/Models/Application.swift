@@ -13,7 +13,7 @@ import UIKit
 
 public typealias Entitlement = String
 
-public class Application: NSObject {
+public class Application: NSObject, Sendable {
     // MARK: - Public Properties
     
     public let name: String

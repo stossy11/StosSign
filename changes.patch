@@ -1,0 +1,33 @@
+diff --git a/Sources/StosSign/Models/Application.swift b/Sources/StosSign/Models/Application.swift
+index c219614..1e6f79c 100644
+--- a/Sources/StosSign/Models/Application.swift
++++ b/Sources/StosSign/Models/Application.swift
+@@ -13,7 +13,7 @@ import UIKit
+ 
+ public typealias Entitlement = String
+ 
+-public class Application: NSObject {
++public class Application: NSObject, Sendable {
+     // MARK: - Public Properties
+     
+     public let name: String
+diff --git a/Sources/StosSign_API/AppleAPI.swift b/Sources/StosSign_API/AppleAPI.swift
+index a1884a7..45a4cd0 100644
+--- a/Sources/StosSign_API/AppleAPI.swift
++++ b/Sources/StosSign_API/AppleAPI.swift
+@@ -16,13 +16,13 @@ let QH_Protocol = "QH65B2"
+ let V1_Protocol = "v1"
+ let authProtocol = "A1234"
+ 
+-public final class AppleAPI {
++public final class AppleAPI: Sendable {
+     public let session = URLSession(configuration: URLSessionConfiguration.ephemeral)
+     public let dateFormatter = ISO8601DateFormatter()
+     public let qhURL = URL(string: "https://developerservices2.apple.com/services/\(QH_Protocol)/")!
+     public let v1URL = URL(string: "https://developerservices2.apple.com/services/\(V1_Protocol)/")!
+     
+-    public static var shared = AppleAPI()
++    public static let shared = AppleAPI()
+     
+     private init() {}
+     
