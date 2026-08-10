@@ -16,13 +16,13 @@ let QH_Protocol = "QH65B2"
 let V1_Protocol = "v1"
 let authProtocol = "A1234"
 
-public final class AppleAPI {
+public final class AppleAPI: Sendable {
     public let session = URLSession(configuration: URLSessionConfiguration.ephemeral)
     public let dateFormatter = ISO8601DateFormatter()
     public let qhURL = URL(string: "https://developerservices2.apple.com/services/\(QH_Protocol)/")!
     public let v1URL = URL(string: "https://developerservices2.apple.com/services/\(V1_Protocol)/")!
     
-    public static var shared = AppleAPI()
+    public static let shared = AppleAPI()
     
     private init() {}
     
