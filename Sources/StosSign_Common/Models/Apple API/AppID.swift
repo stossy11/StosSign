@@ -7,7 +7,8 @@
 
 import Foundation
 
-public struct AppID { // I wanted to use a Codable struct but for some reason no matter how much i tried it wouldn't work due to the features and enabled Features stuff
+// Codable doesn't like us mapping values so responseDictionary had to be done, sowwy :3
+public struct AppID {
     public var name: String
     public var identifier: String
     public var bundleIdentifier: String

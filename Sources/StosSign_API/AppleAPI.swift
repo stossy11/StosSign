@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import StosSign_Common
 import StosSign_Certificate
 #if !canImport(Darwin)
 import FoundationNetworking
@@ -18,7 +19,6 @@ let authProtocol = "A1234"
 
 public final class AppleAPI: Sendable {
     public let session = URLSession(configuration: URLSessionConfiguration.ephemeral)
-    public let dateFormatter = ISO8601DateFormatter()
     public let qhURL = URL(string: "https://developerservices2.apple.com/services/\(QH_Protocol)/")!
     public let v1URL = URL(string: "https://developerservices2.apple.com/services/\(V1_Protocol)/")!
     
@@ -234,8 +234,7 @@ public final class AppleAPI: Sendable {
         var newDict = [String: Any]()
         for (key, value) in dict {
             if let date = value as? Date {
-                let formatter = ISO8601DateFormatter()
-                newDict[key] = formatter.string(from: date)
+                newDict[key] = date.formatted(.iso8601)
             } else if let subDict = value as? [String: Any] {
                 newDict[key] = convertDatesToStrings(in: subDict)
             } else if let array = value as? [Any] {
@@ -243,8 +242,7 @@ public final class AppleAPI: Sendable {
                     if let elementDict = element as? [String: Any] {
                         return convertDatesToStrings(in: elementDict)
                     } else if let date = element as? Date {
-                        let formatter = ISO8601DateFormatter()
-                        return formatter.string(from: date)
+                        return date.formatted(.iso8601)
                     }
                     return element
                 }
@@ -671,7 +669,7 @@ public final class AppleAPI: Sendable {
             "Accept": "application/vnd.api+json",
             "Accept-Language": "en-us",
             "X-Apple-App-Info": "com.apple.gs.xcode.auth",
-            "X-Xcode-Version": "11.2 (11B41)",
+            "X-Xcode-Version": "27.0 (27A5218g)",
             "X-HTTP-Method-Override": originalHTTPMethod ?? "",
             "X-Apple-I-Identity-Id": session.dsid,
             "X-Apple-GS-Token": session.authToken,
@@ -681,7 +679,7 @@ public final class AppleAPI: Sendable {
             "X-Apple-I-MD-RINFO": String(session.anisetteData.routingInfo),
             "X-Mme-Device-Id": session.anisetteData.deviceUniqueIdentifier,
             "X-MMe-Client-Info": session.anisetteData.deviceDescription,
-            "X-Apple-I-Client-Time": dateFormatter.string(from: session.anisetteData.date),
+            "X-Apple-I-Client-Time": session.anisetteData.date.formatted(.iso8601),
             "X-Apple-Locale": session.anisetteData.locale.identifier,
             "X-Apple-I-TimeZone": session.anisetteData.timeZone.abbreviation() ?? ""
         ]
@@ -727,7 +725,7 @@ public final class AppleAPI: Sendable {
             "Accept": json ? "application/json, text/plain, */*" : "text/x-xml-plist",
             "Accept-Language": "en-us",
             "X-Apple-App-Info": "com.apple.gs.xcode.auth",
-            "X-Xcode-Version": "11.2 (11B41)",
+            "X-Xcode-Version": "27.0 (27A5218g)",
             "X-Apple-I-Identity-Id": session.dsid,
             "X-Apple-GS-Token": session.authToken,
             "X-Apple-I-MD-M": session.anisetteData.machineID,
@@ -736,7 +734,7 @@ public final class AppleAPI: Sendable {
             "X-Apple-I-MD-RINFO": "\(session.anisetteData.routingInfo)",
             "X-Mme-Device-Id": session.anisetteData.deviceUniqueIdentifier,
             "X-MMe-Client-Info": session.anisetteData.deviceDescription,
-            "X-Apple-I-Client-Time": dateFormatter.string(from: session.anisetteData.date),
+            "X-Apple-I-Client-Time": session.anisetteData.date.formatted(.iso8601),
             "X-Apple-Locale": session.anisetteData.locale.identifier,
             "X-Apple-I-Locale": session.anisetteData.locale.identifier,
             "X-Apple-I-TimeZone": session.anisetteData.timeZone.abbreviation() ?? "GMT"
@@ -797,7 +795,7 @@ public final class AppleAPI: Sendable {
             "Accept": "text/x-xml-plist",
             "Accept-Language": "en-us",
             "X-Apple-App-Info": "com.apple.gs.xcode.auth",
-            "X-Xcode-Version": "11.2 (11B41)",
+            "X-Xcode-Version": "27.0 (27A5218g)",
             "X-Apple-I-Identity-Id": session.dsid,
             "X-Apple-GS-Token": session.authToken,
             "X-Apple-I-MD-M": session.anisetteData.machineID,
@@ -806,7 +804,7 @@ public final class AppleAPI: Sendable {
             "X-Apple-I-MD-RINFO": "\(session.anisetteData.routingInfo)",
             "X-Mme-Device-Id": session.anisetteData.deviceUniqueIdentifier,
             "X-MMe-Client-Info": session.anisetteData.deviceDescription,
-            "X-Apple-I-Client-Time": dateFormatter.string(from: session.anisetteData.date),
+            "X-Apple-I-Client-Time": session.anisetteData.date.formatted(.iso8601),
             "X-Apple-Locale": session.anisetteData.locale.identifier,
             "X-Apple-I-Locale": session.anisetteData.locale.identifier,
             "X-Apple-I-TimeZone": session.anisetteData.timeZone.abbreviation() ?? "GMT"

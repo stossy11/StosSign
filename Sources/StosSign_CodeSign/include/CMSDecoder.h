@@ -117,15 +117,16 @@ OSStatus CMSDecoderCopyDetachedContent(
     CFDataRef * __nonnull CF_RETURNS_RETAINED detachedContentOut)	/* RETURNED */
     __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
+
 #if SEC_OS_OSX
 /*
  * This function no longer affects the behavior of the CMS Decoder. Please
  * discontinue use.
+ OSStatus CMSDecoderSetSearchKeychain(
+     CMSDecoderRef        cmsDecoder,
+     CFTypeRef            keychainOrArray)
+     API_DEPRECATED_WITH_REPLACEMENT("SecKeychainSetSearchList",macos(10.5, 10.13)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
  */
-OSStatus CMSDecoderSetSearchKeychain(
-    CMSDecoderRef        cmsDecoder,
-    CFTypeRef            keychainOrArray)
-    API_DEPRECATED_WITH_REPLACEMENT("SecKeychainSetSearchList",macos(10.5, 10.13)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 #endif // SEC_OS_OSX
 
 /*

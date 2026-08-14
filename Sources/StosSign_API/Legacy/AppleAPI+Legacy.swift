@@ -7,6 +7,7 @@
 
 import Foundation
 import StosSign_Certificate
+import StosSign_Common
 
 @available(*, deprecated, message: "Please Use async functions instead")
 extension AppleAPI {

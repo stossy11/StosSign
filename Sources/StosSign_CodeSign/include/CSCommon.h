@@ -233,6 +233,7 @@ CF_ENUM(SecGuestRef) {
 	slow network requests that can delay evaluations. This flag has always been usable for
 	SecStaticCode objects and is usable with SecCode objects starting with macOS 11.3.
 */
+#if !SEC_OS_OSX
 typedef CF_OPTIONS(uint32_t, SecCSFlags) {
 	kSecCSDefaultFlags = 0,					/* no particular flags (default behavior) */
 	
@@ -246,6 +247,7 @@ typedef CF_OPTIONS(uint32_t, SecCSFlags) {
 	kSecCSStripDisallowedXattrs = 1 << 24, /* Strip disallowed xattrs, such as com.apple.FinderInfo and com.apple.ResourceFork */
     kSecCSMatchGuestRequirementInKernel = 1 << 23, /* Request matching the provided requirement in kernel against the running guest rather than on disk*/
 };
+#endif
 
 typedef CF_OPTIONS(uint32_t, SecPreserveFlags) {
 	kSecCSPreserveIdentifier = 1 << 0,

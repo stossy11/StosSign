@@ -7,6 +7,7 @@
 
 import Foundation
 import StosSign_API
+import StosSign_Common
 
 extension AppleAPI {
     public func authenticate(

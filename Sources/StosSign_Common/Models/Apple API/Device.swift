@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum DeviceType: Int {
+public enum DeviceType: Int, Sendable {
     case iPhone = 1
     case iPad = 2
     case AppleTV = 3
@@ -28,7 +28,7 @@ public enum DeviceType: Int {
     }
 }
 
-public struct Device: Codable {
+public struct Device: Codable, Sendable {
     public var name: String
     public var identifier: String
     public var type: DeviceType

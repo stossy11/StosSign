@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import StosSign_Common
 
 public class AppleAPISession {
     public var dsid: String

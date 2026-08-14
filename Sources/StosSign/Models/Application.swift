@@ -6,14 +6,17 @@
 //
 
 import Foundation
-#if os(iOS)
+import StosSign_Common
+#if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
 #endif
 
 
 public typealias Entitlement = String
 
-public class Application: NSObject, Sendable {
+public final class Application: NSObject, Sendable {
     // MARK: - Public Properties
     
     public let name: String
@@ -25,49 +28,31 @@ public class Application: NSObject, Sendable {
     public let fileURL: URL
     public let bundle: Bundle
     
-    /// Whether the application has private entitlements
-    public var hasPrivateEntitlements: Bool = false
-    
-    // MARK: - Lazy Properties
-    
-    /// Dictionary of application entitlements
     public var entitlements: [Entitlement: Any] {
-        if let cached = _entitlements {
-            return cached
-        }
-
-        
         do {
            let path = bundle.executableURL?.path ?? fileURL.path
             
             do {
                 let rawEntitlements = try EntitlementsParser(path).readEntitlements().values
-                _entitlements = rawEntitlements
+                // _entitlements = rawEntitlements
                 return rawEntitlements
             } catch {
                 throw EntitlementError.failedToExtract(error)
             }
         } catch {
             print("Error parsing entitlements: \(error)")
-            _entitlements = [:]
             return [:]
         }
     }
     
     
-    /// Associated provisioning profile
     public var provisioningProfile: ProvisioningProfile? {
-        if let cached = _provisioningProfile {
-            return cached
-        }
-        
         let provisioningProfileURL = fileURL.appendingPathComponent("embedded.mobileprovision")
         let decoder = PropertyListDecoder()
 
         do {
             let data = try Data(contentsOf: provisioningProfileURL)
             let profile = try decoder.decode(ProvisioningProfile.self, from: data)
-            _provisioningProfile = profile
             return profile
         } catch {
             print("Failed to decode provisioning profile: \(error)")
@@ -75,7 +60,6 @@ public class Application: NSObject, Sendable {
         }
     }
     
-    /// App extensions contained in this application
     public var appExtensions: Set<Application> {
         guard let plugInsURL = bundle.builtInPlugInsURL else {
             return []
@@ -95,24 +79,26 @@ public class Application: NSObject, Sendable {
     }
 
     
-    #if os(iOS)
-    /// The application icon, if available
+    #if canImport(UIKit)
     public var icon: UIImage? {
         guard let iconName = self.iconName else {
             return nil
         }
         
+        
         return UIImage(named: iconName, in: self.bundle, compatibleWith: nil)
+    }
+    #elseif canImport(AppKit)
+    public var icon: NSImage? {
+        guard let iconName = self.iconName else {
+            return nil
+        }
+        
+        return self.bundle.image(forResource: iconName)
     }
     #endif
     
-    // MARK: - Private Properties
-    
     private let iconName: String?
-    private var _entitlements: [Entitlement: Any]?
-    private var _provisioningProfile: ProvisioningProfile?
-    
-    // MARK: - Initializers
     
     public init?(fileURL: URL) {
         guard let bundle = Bundle(url: fileURL) else {
@@ -124,13 +110,10 @@ public class Application: NSObject, Sendable {
             return nil
         }
         
-        // Extract required information
         guard let name = infoDictionary["CFBundleDisplayName"] as? String ?? infoDictionary[kCFBundleNameKey as String] as? String,
               let bundleIdentifier = infoDictionary[kCFBundleIdentifierKey as String] as? String else {
             return nil
         }
-
-        // CFBundleExecutable
         
         let version = infoDictionary["CFBundleShortVersionString"] as? String ?? "1.0"
         let buildVersion = infoDictionary[kCFBundleVersionKey as String] as? String ?? "1"
@@ -155,8 +138,6 @@ public class Application: NSObject, Sendable {
 
          _ = self.entitlements
     }
-    
-    // MARK: - Private Methods
     
     private static func parseMinimumOSVersion(from versionString: String) -> OperatingSystemVersion {
         let components = versionString.components(separatedBy: ".")
@@ -218,7 +199,6 @@ public class Application: NSObject, Sendable {
     }
 }
 
-// MARK: - Extensions
 extension FileManager {
     func enumerateContents(at url: URL, options: DirectoryEnumerationOptions = []) -> [URL] {
         guard let enumerator = self.enumerator(

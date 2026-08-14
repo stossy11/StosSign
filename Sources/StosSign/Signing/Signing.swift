@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import StosSign_Common
 #if canImport(Security)
 import StosSign_CodeSign
 #else

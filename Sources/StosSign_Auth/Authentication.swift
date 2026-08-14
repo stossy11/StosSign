@@ -7,13 +7,12 @@
 
 import Foundation
 import StosSign_API
+import StosSign_Common
 import StosSign_Certificate
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
 
-public typealias AnisetteData = StosSign_API.AnisetteData
-public typealias Account = StosSign_API.Account
 public typealias AppleAPISession = StosSign_API.AppleAPISession
 public typealias AppleAPIError = StosSign_API.AppleAPIError
 
@@ -315,7 +314,7 @@ public final class Authentication {
             "Content-Type": "application/x-plist",
             "User-Agent": "Xcode",
             "X-Apple-App-Info": "com.apple.gs.xcode.auth",
-            "X-Xcode-Version": "11.2 (11B41)",
+            "X-Xcode-Version": "27.0 (27A5218g)",
             "X-Apple-Identity-Token": encodedIdentityToken,
             "X-Apple-I-MD-M": anisetteData.machineID,
             "X-Apple-I-MD": anisetteData.oneTimePassword,

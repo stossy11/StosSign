@@ -12,7 +12,7 @@ let package = Package(
     products: [
         .library(
             name: "StosSign",
-            targets: ["StosSign", "StosSign_CodeSign", "StosSign_Certificate", "StosOpenSSL", "StosSign_API", "StosSign_Auth"]
+            targets: ["StosSign", "StosSign_Common", "StosSign_CodeSign", "StosSign_Certificate", "StosOpenSSL", "StosSign_API", "StosSign_Auth", "StosSign_Anisette"]
         ),
         .library(
             name: "StosSign_API",
@@ -30,6 +30,14 @@ let package = Package(
             name: "StosSign_CodeSign",
             targets: ["StosSign_CodeSign"]
         ),
+        .library(
+            name: "StosSign_Common",
+            targets: ["StosSign_Common"]
+        ),
+        .library(
+            name: "StosSign_Anisette",
+            targets: ["StosSign_Anisette"]
+        )
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-crypto.git", "1.0.0" ..< "5.0.0"),
@@ -48,6 +56,7 @@ let package = Package(
                 "StosSign_Auth",
                 "StosSign_API",
                 "StosSign_CodeSign",
+                "StosSign_Common"
             ]
         ),
         .target(
@@ -60,12 +69,14 @@ let package = Package(
                     name: "StosOpenSSL",
                     condition: .when(platforms: [.iOS, .macOS, .tvOS, .watchOS, .macCatalyst, .visionOS])
                 ),
+                "StosSign_Common"
             ]
         ),
         .target(
             name: "StosSign_API",
             dependencies: [
-                "StosSign_Certificate"
+                "StosSign_Certificate",
+                "StosSign_Common"
             ]
         ),
         .target(
@@ -76,6 +87,18 @@ let package = Package(
                 .product(name: "SRP", package: "swift-srp"),
                 .product(name: "X509", package: "swift-certificates"),
                 "StosSign_API",
+                "StosSign_Common"
+            ]
+        ),
+        .target(
+            name: "StosSign_Anisette",
+            dependencies: [
+                .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "CryptoSwift", package: "CryptoSwift"),
+                .product(name: "SRP", package: "swift-srp"),
+                .product(name: "X509", package: "swift-certificates"),
+                "StosSign_API",
+                "StosSign_Common"
             ]
         ),
         .target(
@@ -88,6 +111,9 @@ let package = Package(
         .target(
             name: "StosSign_CodeSign",
            // path: "Sources/StosSign/StosSign_CodeSign"
+        ),
+        .target(
+            name: "StosSign_Common",
         ),
     ],
     cLanguageStandard: .gnu11,
