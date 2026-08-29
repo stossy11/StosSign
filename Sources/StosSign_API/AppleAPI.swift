@@ -234,7 +234,7 @@ public final class AppleAPI: Sendable {
         var newDict = [String: Any]()
         for (key, value) in dict {
             if let date = value as? Date {
-                newDict[key] = date.formatted(.iso8601)
+                newDict[key] = date.iso8601()
             } else if let subDict = value as? [String: Any] {
                 newDict[key] = convertDatesToStrings(in: subDict)
             } else if let array = value as? [Any] {
@@ -242,7 +242,7 @@ public final class AppleAPI: Sendable {
                     if let elementDict = element as? [String: Any] {
                         return convertDatesToStrings(in: elementDict)
                     } else if let date = element as? Date {
-                        return date.formatted(.iso8601)
+                        return date.iso8601()
                     }
                     return element
                 }
@@ -679,7 +679,7 @@ public final class AppleAPI: Sendable {
             "X-Apple-I-MD-RINFO": String(session.anisetteData.routingInfo),
             "X-Mme-Device-Id": session.anisetteData.deviceUniqueIdentifier,
             "X-MMe-Client-Info": session.anisetteData.deviceDescription,
-            "X-Apple-I-Client-Time": session.anisetteData.date.formatted(.iso8601),
+            "X-Apple-I-Client-Time": session.anisetteData.date.iso8601(),
             "X-Apple-Locale": session.anisetteData.locale.identifier,
             "X-Apple-I-TimeZone": session.anisetteData.timeZone.abbreviation() ?? ""
         ]
@@ -734,7 +734,7 @@ public final class AppleAPI: Sendable {
             "X-Apple-I-MD-RINFO": "\(session.anisetteData.routingInfo)",
             "X-Mme-Device-Id": session.anisetteData.deviceUniqueIdentifier,
             "X-MMe-Client-Info": session.anisetteData.deviceDescription,
-            "X-Apple-I-Client-Time": session.anisetteData.date.formatted(.iso8601),
+            "X-Apple-I-Client-Time": session.anisetteData.date.iso8601(),
             "X-Apple-Locale": session.anisetteData.locale.identifier,
             "X-Apple-I-Locale": session.anisetteData.locale.identifier,
             "X-Apple-I-TimeZone": session.anisetteData.timeZone.abbreviation() ?? "GMT"
@@ -804,7 +804,7 @@ public final class AppleAPI: Sendable {
             "X-Apple-I-MD-RINFO": "\(session.anisetteData.routingInfo)",
             "X-Mme-Device-Id": session.anisetteData.deviceUniqueIdentifier,
             "X-MMe-Client-Info": session.anisetteData.deviceDescription,
-            "X-Apple-I-Client-Time": session.anisetteData.date.formatted(.iso8601),
+            "X-Apple-I-Client-Time": session.anisetteData.date.iso8601(),
             "X-Apple-Locale": session.anisetteData.locale.identifier,
             "X-Apple-I-Locale": session.anisetteData.locale.identifier,
             "X-Apple-I-TimeZone": session.anisetteData.timeZone.abbreviation() ?? "GMT"
@@ -851,4 +851,15 @@ public enum SignError: Int, Error {
     case missingAppBundle
     case missingInfoPlist
     case missingProvisioningProfile
+}
+
+extension Date {
+    func iso8601() -> String {
+        if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
+            return self.formatted(.iso8601)
+        } else {
+            let formatter = ISO8601DateFormatter()
+            return formatter.string(from: self)
+        }
+    }
 }
