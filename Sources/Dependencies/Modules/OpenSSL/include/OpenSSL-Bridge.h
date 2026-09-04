@@ -14,6 +14,7 @@
 #include <openssl/x509.h>
 #include <openssl/evp.h>
 #include <openssl/asn1.h>
+#include <openssl/provider.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
