@@ -116,6 +116,4 @@ let package = Package(
             name: "StosSign_Common",
         ),
     ],
-    cLanguageStandard: .gnu11,
-    cxxLanguageStandard: .cxx14
 )
