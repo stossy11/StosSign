@@ -9,9 +9,8 @@ import Foundation
 import StosSign_Common
 #if canImport(Security)
 import StosSign_CodeSign
-#else
-import Zsign
 #endif
+import Zsign
 
 typealias EVP_PKEY = OpaquePointer
 typealias X509 = OpaquePointer
@@ -178,11 +177,12 @@ public enum SigningError: LocalizedError {
 public final class Signer {
     public let team: Team
     public let certificate: Certificate
+    public let type: SignerType
     
-    
-    public init(team: Team, certificate: Certificate) {
+    public init(team: Team, certificate: Certificate, type: SignerType) {
         self.team = team
         self.certificate = certificate
+        self.type = type
     }
     
     public func signApp(at appURL: URL? = nil, application: Application?, entitlements: [Entitlement : Any], provisioningProfiles profiles: [ProvisioningProfile]) async throws  {
@@ -234,28 +234,33 @@ public final class Signer {
                 
                 updatePlistValue(fileURL: appExtension.fileURL.appendingPathComponent("Info.plist"), key: "CFBundleIdentifier", newValue: newBundleID)
                 
+                let convertedEntitlements = entitlements.mapValues { $0 }
+                
+                
                 print("signing app extension \(newBundleID)")
                 try await Signer.signAsync(
                     appPath: appExtension.fileURL.path,
                     provisionPath: extensionProvisioningPath,
                     p12Path: p12FilePath.path,
                     p12Password: "",
-                    entitlements: [:]
+                    entitlements: convertedEntitlements.merging(extensionProfile.entitlements, uniquingKeysWith: {current, new in current }),
+                    type: type,
                 )
             }
             
             
             updatePlistValue(fileURL: appURL.appendingPathComponent("Info.plist"), key: "CFBundleIdentifier", newValue: bundleID)
             
+            let convertedEntitlements = entitlements.mapValues { $0 }
+            
             try await Signer.signAsync(
                 appPath: appURL.path,
                 provisionPath: provisioningPath,
                 p12Path: p12FilePath.path,
                 p12Password: "",
-                entitlements: entitlements.filter({ $0.key == "keychain-access-groups" })
+                entitlements: convertedEntitlements.merging(profile.entitlements, uniquingKeysWith: {current, new in current }),
+                type: type
             )
-            
-            
         } catch {
             throw SigningError.unknown(error.localizedDescription)
         }
@@ -283,8 +288,6 @@ public final class Signer {
     }
 }
 
-
-// MARK: - Helper Functions
 
 func saveProvisioningProfile(_ profile: ProvisioningProfile) throws -> String {
     let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(profile.uuid).mobileprovision")
@@ -317,27 +320,60 @@ extension Signer {
         provisionPath: String,
         p12Path: String,
         p12Password: String,
-        entitlements: [Entitlement: Any]
+        entitlements: [Entitlement: Any],
+        type: SignerType
     ) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            let status = codesignAllNested(
-                appPath,
-                p12Path,
-                "",
-                provisionPath,
-                entitlements
+        #if canImport(Security)
+        let security: () async throws -> Void = {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                let status = codesignAllNested(
+                    appPath,
+                    p12Path,
+                    p12Password,
+                    provisionPath,
+                    entitlements
+                )
+                
+                if status == 0 {
+                    continuation.resume(returning: ())
+                } else {
+                    continuation.resume(throwing: NSError(
+                        domain: "CodeSign",
+                        code: Int(status),
+                        userInfo: [NSLocalizedDescriptionKey: "Signing failed"]
+                    ))
+                }
+                
+            }
+        }
+        #else
+        let security: () async throws -> Void = {}
+        #endif
+        
+        switch type {
+        case .security_framework:
+            try await security()
+        case .zsign:
+            let plistData = try PropertyListSerialization.data(
+                fromPropertyList: entitlements,
+                format: .xml,
+                options: 0
             )
             
-            if status == 0 {
-                continuation.resume(returning: ())
-            } else {
-                continuation.resume(throwing: NSError(
-                    domain: "CodeSign",
-                    code: Int(status),
-                    userInfo: [NSLocalizedDescriptionKey: "Signing failed"]
-                ))
-            }
+            let fileManager: FileManager = .default
+            let path: String = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".xml").path
             
+            fileManager.createFile(atPath: path, contents: plistData)
+            
+            let status = Zsign.sign(appPath: appPath, provisionPath: provisionPath, p12Path: p12Path, p12Password: p12Password, entitlementsPath: path, removeProvision: true)
+            
+            if !status {
+                throw NSError(
+                    domain: "CodeSign",
+                    code: Int(-1),
+                    userInfo: [NSLocalizedDescriptionKey: "Signing failed"]
+                )
+            }
         }
     }
 }
