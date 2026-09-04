@@ -52,6 +52,7 @@ let package = Package(
             name: "StosSign",
             dependencies: [
                 .product(name: "Zsign", package: "Zsign-Package"),
+                .product(name: "zsignc", package: "Zsign-Package"),
                 "StosSign_Certificate",
                 "StosSign_Auth",
                 "StosSign_API",
