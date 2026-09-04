@@ -10,7 +10,7 @@ import StosSign_Common
 #if canImport(Security)
 import StosSign_CodeSign
 #endif
-import Zsign
+import ZsignC
 
 typealias EVP_PKEY = OpaquePointer
 typealias X509 = OpaquePointer
@@ -364,15 +364,18 @@ extension Signer {
             let path: String = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".xml").path
             
             fileManager.createFile(atPath: path, contents: plistData)
-            
-            let status = Zsign.sign(appPath: appPath, provisionPath: provisionPath, p12Path: p12Path, p12Password: p12Password, entitlementsPath: path, removeProvision: true)
-            
-            if !status {
-                throw NSError(
-                    domain: "CodeSign",
-                    code: Int(-1),
-                    userInfo: [NSLocalizedDescriptionKey: "Signing failed"]
-                )
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                zsign(appPath, provisionPath, p12Path, p12Password, path, nil, nil, nil, false, true) { bool in
+                    if bool {
+                        continuation.resume(throwing: NSError(
+                            domain: "ZSign",
+                            code: Int(-1),
+                            userInfo: [NSLocalizedDescriptionKey: "Signing failed"]
+                        ))
+                    } else {
+                        continuation.resume(returning: ())
+                    }
+                }
             }
         }
     }
