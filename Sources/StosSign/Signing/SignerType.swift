@@ -11,7 +11,7 @@ public enum SignerType: String, Codable, CaseIterable, Identifiable {
     public var id: String { rawValue }
     
     case security_framework
-    case zsign
+    case codesignkit
     // these two may come eventually, but for now we don't need it.
     // case ldid
     // case custom
@@ -20,8 +20,8 @@ public enum SignerType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .security_framework:
             return "Security.framework"
-        case .zsign:
-            return "ZSign"
+        case .codesignkit:
+            return "CodeSignKit"
         }
     }
 }

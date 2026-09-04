@@ -10,7 +10,7 @@ import StosSign_Common
 #if canImport(Security)
 import StosSign_CodeSign
 #endif
-import ZsignC
+import CodeSignKit
 
 typealias EVP_PKEY = OpaquePointer
 typealias X509 = OpaquePointer
@@ -353,30 +353,18 @@ extension Signer {
         switch type {
         case .security_framework:
             try await security()
-        case .zsign:
+        case .codesignkit:
             let plistData = try PropertyListSerialization.data(
                 fromPropertyList: entitlements,
                 format: .xml,
                 options: 0
             )
             
-            let fileManager: FileManager = .default
-            let path: String = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".xml").path
+            let data = try Data(contentsOf: URL(string: p12Path)!)
             
-            fileManager.createFile(atPath: path, contents: plistData)
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                zsign(appPath, provisionPath, p12Path, p12Password, path, nil, nil, nil, false, true) { bool in
-                    if bool {
-                        continuation.resume(throwing: NSError(
-                            domain: "ZSign",
-                            code: Int(-1),
-                            userInfo: [NSLocalizedDescriptionKey: "Signing failed"]
-                        ))
-                    } else {
-                        continuation.resume(returning: ())
-                    }
-                }
-            }
+            try CodeSigner.sign(appPath: appPath, keyData: data) { string in
+                String(data: plistData, encoding: .utf8) ?? string
+            } progress: {}
         }
     }
 }
