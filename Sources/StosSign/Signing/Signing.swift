@@ -10,7 +10,6 @@ import StosSign_Common
 #if canImport(Security)
 import StosSign_CodeSign
 #endif
-import CodeSignKit
 
 typealias EVP_PKEY = OpaquePointer
 typealias X509 = OpaquePointer
@@ -177,12 +176,10 @@ public enum SigningError: LocalizedError {
 public final class Signer {
     public let team: Team
     public let certificate: Certificate
-    public let type: SignerType
     
-    public init(team: Team, certificate: Certificate, type: SignerType) {
+    public init(team: Team, certificate: Certificate) {
         self.team = team
         self.certificate = certificate
-        self.type = type
     }
     
     public func signApp(at appURL: URL? = nil, application: Application?, entitlements: [Entitlement : Any], provisioningProfiles profiles: [ProvisioningProfile]) async throws  {
@@ -190,7 +187,7 @@ public final class Signer {
         
         let appURL = appURL ?? application!.fileURL
         
-        guard var application = application ?? Application(fileURL: appURL) else {
+        guard let application = application ?? Application(fileURL: appURL) else {
             throw SigningError.invalidApp
         }
         
@@ -243,8 +240,7 @@ public final class Signer {
                     provisionPath: extensionProvisioningPath,
                     p12Path: p12FilePath.path,
                     p12Password: "",
-                    entitlements: convertedEntitlements.merging(extensionProfile.entitlements, uniquingKeysWith: {current, new in current }),
-                    type: type,
+                    entitlements: convertedEntitlements.merging(extensionProfile.entitlements, uniquingKeysWith: {current, new in current })
                 )
             }
             
@@ -258,11 +254,10 @@ public final class Signer {
                 provisionPath: provisioningPath,
                 p12Path: p12FilePath.path,
                 p12Password: "",
-                entitlements: convertedEntitlements.merging(profile.entitlements, uniquingKeysWith: {current, new in current }),
-                type: type
+                entitlements: convertedEntitlements.merging(profile.entitlements, uniquingKeysWith: {current, new in current })
             )
         } catch {
-            throw SigningError.unknown(error.localizedDescription)
+            throw error
         }
         
     }
@@ -321,7 +316,6 @@ extension Signer {
         p12Path: String,
         p12Password: String,
         entitlements: [Entitlement: Any],
-        type: SignerType
     ) async throws {
         #if canImport(Security)
         let security: () async throws -> Void = {
@@ -350,22 +344,7 @@ extension Signer {
         let security: () async throws -> Void = {}
         #endif
         
-        switch type {
-        case .security_framework:
-            try await security()
-        case .codesignkit:
-            let plistData = try PropertyListSerialization.data(
-                fromPropertyList: entitlements,
-                format: .xml,
-                options: 0
-            )
-            
-            let data = try Data(contentsOf: URL(string: p12Path)!)
-            
-            try CodeSigner.sign(appPath: appPath, keyData: data) { string in
-                String(data: plistData, encoding: .utf8) ?? string
-            } progress: {}
-        }
+        try await security()
     }
 }
 

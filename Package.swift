@@ -41,7 +41,6 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-crypto.git", "1.0.0" ..< "5.0.0"),
-        .package(url: "https://github.com/mahee96/CodeSignKit", branch: "main"),
         .package(url: "https://github.com/adam-fowler/swift-srp.git", revision: "ce202c48f8ca68f44b71732f945eb8221d6fe135"),
         .package(url: "https://github.com/krzyzanowskim/OpenSSL", from: "3.3.3001"),
         .package(url: "https://github.com/apple/swift-certificates.git", from: "1.0.0"),
@@ -51,7 +50,6 @@ let package = Package(
         .target(
             name: "StosSign",
             dependencies: [
-                .product(name: "CodeSignKit", package: "CodeSignKit"),
                 "StosSign_Certificate",
                 "StosSign_Auth",
                 "StosSign_API",
