@@ -8,7 +8,6 @@
 import Foundation
 import StosSign_API
 import StosSign_Common
-import StosSign_Certificate
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif

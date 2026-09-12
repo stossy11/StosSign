@@ -12,7 +12,7 @@ let package = Package(
     products: [
         .library(
             name: "StosSign",
-            targets: ["StosSign", "StosSign_Common", "StosSign_CodeSign", "StosSign_Certificate", "StosOpenSSL", "StosSign_API", "StosSign_Auth", "StosSign_Anisette"]
+            targets: ["StosSign"]
         ),
         .library(
             name: "StosSign_API",
@@ -67,13 +67,13 @@ let package = Package(
                     name: "StosOpenSSL",
                     condition: .when(platforms: [.iOS, .macOS, .tvOS, .watchOS, .macCatalyst, .visionOS])
                 ),
-                "StosSign_Common"
+                "StosSign_Common",
+                "StosSign_API"
             ]
         ),
         .target(
             name: "StosSign_API",
             dependencies: [
-                "StosSign_Certificate",
                 "StosSign_Common"
             ]
         ),
