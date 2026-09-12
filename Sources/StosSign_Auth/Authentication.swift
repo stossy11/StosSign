@@ -246,7 +246,7 @@ public final class Authentication {
             "Content-Type": "text/x-xml-plist",
             "X-MMe-Client-Info": anisetteData.deviceDescription,
             "Accept": "*/*",
-            "User-Agent": "akd/1.0 CFNetwork/978.0.7 Darwin/18.7.0"
+            "User-Agent": "AuthKit/1 (Macintosh; OS X 27.0) (com.apple.akd/1.0)"
         ]
         
         if requestParameters["o"] as? String == "complete" {
