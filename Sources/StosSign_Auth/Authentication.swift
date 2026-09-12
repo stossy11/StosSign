@@ -246,12 +246,9 @@ public final class Authentication {
             "Content-Type": "text/x-xml-plist",
             "X-MMe-Client-Info": anisetteData.deviceDescription,
             "Accept": "*/*",
-            "User-Agent": "AuthKit/1 (Macintosh; OS X 27.0) (com.apple.akd/1.0)"
+            "User-Agent": "AuthKit/1 (Macintosh; OS X 26.6) (com.apple.dt.Xcode/26.0)",
+            "Connection": "close"
         ]
-        
-        if requestParameters["o"] as? String == "complete" {
-            httpHeaders["Connection"] = "close"
-        }
         
         let bodyData = try PropertyListSerialization.data(
             fromPropertyList: parameters,
@@ -323,7 +320,8 @@ public final class Authentication {
             "X-MMe-Client-Info": anisetteData.deviceDescription,
             "X-Apple-I-Client-Time": dateFormatter.string(from: anisetteData.date),
             "X-Apple-Locale": anisetteData.locale.identifier,
-            "X-Apple-I-TimeZone": anisetteData.timeZone.abbreviation() ?? "PST"
+            "X-Apple-I-TimeZone": anisetteData.timeZone.abbreviation() ?? "PST",
+            "Connection": "close"
         ]
         
         var request = URLRequest(url: url)
