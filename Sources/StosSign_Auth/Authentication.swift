@@ -28,9 +28,10 @@ public final class Authentication {
         verificationHandler: ((@escaping (String?) -> Void) async -> Void)? = nil
     ) async throws -> (Account, AppleAPISession) {
         let sanitizedAppleID = unsanitizedAppleID.lowercased()
-        var macOSClientInfo: AnisetteData = anisetteData
+        let macOSClientInfo: AnisetteData = .init(machineID: anisetteData.machineID, oneTimePassword: anisetteData.oneTimePassword, localUserID: anisetteData.localUserID, routingInfo: anisetteData.routingInfo, deviceUniqueIdentifier: anisetteData.deviceUniqueIdentifier, deviceSerialNumber: anisetteData.deviceSerialNumber, deviceDescription: smsClientInfo ?? anisetteData.deviceDescription, date: anisetteData.date, locale: anisetteData.locale, timeZone: anisetteData.timeZone)
         
-        macOSClientInfo.deviceDescription = smsClientInfo ?? anisetteData.deviceDescription
+        print(anisetteData.deviceDescription)
+        print(macOSClientInfo.deviceDescription)
         
         let clientDictionary: [String: Any] = [
             "bootstrap": true,
