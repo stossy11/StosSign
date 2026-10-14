@@ -24,9 +24,13 @@ public final class Authentication {
         appleID unsanitizedAppleID: String,
         password: String,
         anisetteData: AnisetteData,
+        smsClientInfo: String? = nil,
         verificationHandler: ((@escaping (String?) -> Void) async -> Void)? = nil
     ) async throws -> (Account, AppleAPISession) {
         let sanitizedAppleID = unsanitizedAppleID.lowercased()
+        var macOSClientInfo: AnisetteData = anisetteData
+        
+        macOSClientInfo.deviceDescription = smsClientInfo ?? anisetteData.deviceDescription
         
         let clientDictionary: [String: Any] = [
             "bootstrap": true,
@@ -135,7 +139,7 @@ public final class Authentication {
             try await requestTrustedDeviceTwoFactorCode(
                 dsid: dsid,
                 idmsToken: idmsToken,
-                anisetteData: anisetteData,
+                anisetteData: macOSClientInfo,
                 verificationHandler: verificationHandler
             )
             
@@ -143,6 +147,7 @@ public final class Authentication {
                 appleID: unsanitizedAppleID,
                 password: password,
                 anisetteData: anisetteData,
+                smsClientInfo: smsClientInfo,
                 verificationHandler: verificationHandler
             )
             
@@ -154,7 +159,7 @@ public final class Authentication {
             try await requestSMSTwoFactorCode(
                 dsid: dsid,
                 idmsToken: idmsToken,
-                anisetteData: anisetteData,
+                anisetteData: macOSClientInfo,
                 verificationHandler: verificationHandler
             )
             
@@ -162,6 +167,7 @@ public final class Authentication {
                 appleID: unsanitizedAppleID,
                 password: password,
                 anisetteData: anisetteData,
+                smsClientInfo: smsClientInfo,
                 verificationHandler: verificationHandler
             )
             
@@ -212,12 +218,13 @@ public final class Authentication {
         appleID unsanitizedAppleID: String,
         password: String,
         anisetteData: AnisetteData,
+        smsClientInfo: String? = nil,
         verificationHandler: ((@escaping (String?) -> Void) -> Void)? = nil,
         completionHandler: @escaping (Account?, AppleAPISession?, Error?) -> Void
     ) {
         Task {
             do {
-                let success = try await authenticate(appleID: unsanitizedAppleID, password: password, anisetteData: anisetteData) { veri in
+                let success = try await authenticate(appleID: unsanitizedAppleID, password: password, anisetteData: anisetteData, smsClientInfo: smsClientInfo) { veri in
                     verificationHandler?(veri)
                 }
                 

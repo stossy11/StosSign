@@ -8,16 +8,16 @@
 import Foundation
 
 public class AnisetteData: Codable {
-    public let machineID: String
-    public let oneTimePassword: String
-    public let localUserID: String
-    public let routingInfo: UInt64
-    public let deviceUniqueIdentifier: String
-    public let deviceSerialNumber: String
-    public let deviceDescription: String
-    public let date: Date
-    public let locale: Locale
-    public let timeZone: TimeZone
+    public var machineID: String
+    public var oneTimePassword: String
+    public var localUserID: String
+    public var routingInfo: UInt64
+    public var deviceUniqueIdentifier: String
+    public var deviceSerialNumber: String
+    public var deviceDescription: String
+    public var date: Date
+    public var locale: Locale
+    public var timeZone: TimeZone
     
     public init(machineID: String,
          oneTimePassword: String,
