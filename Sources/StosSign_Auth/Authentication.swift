@@ -393,7 +393,8 @@ public final class Authentication {
             anisetteData: anisetteData
         )
         
-        let (_, _) = try await AppleAPI.shared.session.data(for: request)
+        let _ = try? await AppleAPI.shared.session.data(for: request)
+        
         
         let verificationCode = try await withCheckedThrowingContinuation { continuation in
             Task {
@@ -470,7 +471,7 @@ public final class Authentication {
         )
         request.httpBody = bodyData
         
-        let (_, _) = try await AppleAPI.shared.session.data(for: request)
+        let _ = try? await AppleAPI.shared.session.data(for: request)
         
         let verificationCode = try await withCheckedThrowingContinuation { continuation in
             Task {
