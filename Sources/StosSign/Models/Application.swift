@@ -63,7 +63,7 @@ public final class Application: NSObject, Sendable {
     public var appExtensions: Set<Application> {
         return Set(
             FileManager.default
-                .enumerateContents(at: bundle.bundleURL, options: [.skipsSubdirectoryDescendants])
+                .enumerateContents(at: bundle.bundleURL)
                 .compactMap { url -> Application? in
                     guard url.pathExtension.lowercased() == "appex",
                           let appExtension = Application(fileURL: url) else {
