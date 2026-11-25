@@ -118,7 +118,7 @@ public final class Authentication {
             throw AppleAPIError.authenticationHandshakeFailed
         }
         
-        guard let decryptedDictionary = try PropertyListSerialization.propertyList(
+        guard let decryptedDictionary = try? PropertyListSerialization.propertyList(
             from: decryptedData,
             format: nil
         ) as? [String: Any],
@@ -195,13 +195,48 @@ public final class Authentication {
                 "t": idmsToken,
                 "u": dsid
             ]
-            
+
+            var responseDictionary = try await sendAuthenticationRequest(
+                parameters: tokenParameters,
+                anisetteData: anisetteData
+            )
+
+            if responseDictionary.values.first as? String == "2faRequired" {
+                guard let verificationHandler = verificationHandler else {
+                    throw AppleAPIError.requiresTwoFactorAuthentication
+                }
+
+                do {
+                    try await requestTrustedDeviceTwoFactorCode(
+                        dsid: dsid,
+                        idmsToken: idmsToken,
+                        verifyOnly: true,
+                        anisetteData: macOSClientInfo,
+                        verificationHandler: verificationHandler
+                    )
+                } catch {
+                    try await requestSMSTwoFactorCode(
+                        dsid: dsid,
+                        idmsToken: idmsToken,
+                        verifyOnly: true,
+                        anisetteData: macOSClientInfo,
+                        verificationHandler: verificationHandler
+                    )
+                }
+                
+                return try await authenticate(
+                    appleID: unsanitizedAppleID,
+                    password: password,
+                    anisetteData: anisetteData,
+                    smsClientInfo: smsClientInfo,
+                    verificationHandler: verificationHandler
+                )
+            }
             
             let token = try await fetchAuthToken(
                 app: app,
-                parameters: tokenParameters,
                 context: context,
-                anisetteData: anisetteData
+                responseDict: responseDictionary
             )
             
             let session = AppleAPISession(
@@ -271,7 +306,7 @@ public final class Authentication {
         
         let (data, _) = try await AppleAPI.shared.session.data(for: request)
         
-        guard let responseDictionary = try PropertyListSerialization.propertyList(
+        guard let responseDictionary = try? PropertyListSerialization.propertyList(
             from: data,
             format: nil
         ) as? [String: Any],
@@ -290,6 +325,8 @@ public final class Authentication {
                 throw AppleAPIError.invalidAnisetteData
             case -20209:
                 throw AppleAPIError.accountLocked
+            case -22411:
+                return ["": "2faRequired"]
             default:
                 guard let errorDescription = status["em"] as? String else {
                     throw AppleAPIError.unknown
@@ -343,15 +380,9 @@ public final class Authentication {
 
     public static func fetchAuthToken(
         app: String,
-        parameters: [String: Any],
         context: GSAContext,
-        anisetteData: AnisetteData
+        responseDict responseDictionary: [String: Any]
     ) async throws -> String {
-        let responseDictionary = try await sendAuthenticationRequest(
-            parameters: parameters,
-            anisetteData: anisetteData
-        )
-        
         guard let encryptedToken = responseDictionary["et"] as? Data else {
             throw URLError(.badServerResponse)
         }
@@ -380,21 +411,28 @@ public final class Authentication {
     public static func requestTrustedDeviceTwoFactorCode(
         dsid: String,
         idmsToken: String,
+        verifyOnly: Bool = false,
         anisetteData: AnisetteData,
         verificationHandler: @escaping (@escaping (String?) -> Void) async -> Void
     ) async throws {
         let requestURL = URL(string: "https://gsa.apple.com/auth/verify/trusteddevice")!
         let verifyURL = URL(string: "https://gsa.apple.com/grandslam/GsService2/validate")!
+        if verifyOnly {
+            print("Verify only :3")
+        } else {
+            let request = makeTwoFactorCodeRequest(
+                url: requestURL,
+                dsid: dsid,
+                idmsToken: idmsToken,
+                anisetteData: anisetteData
+            )
+
+            print("should work?")
         
-        let request = makeTwoFactorCodeRequest(
-            url: requestURL,
-            dsid: dsid,
-            idmsToken: idmsToken,
-            anisetteData: anisetteData
-        )
+            let _ = try? await AppleAPI.shared.session.data(for: request)
+        }
         
-        let _ = try? await AppleAPI.shared.session.data(for: request)
-        
+        print("hi we should have cool")
         
         let verificationCode = try await withCheckedThrowingContinuation { continuation in
             Task {
@@ -403,6 +441,8 @@ public final class Authentication {
                 }
             }
         }
+
+        print("hi")
         
         guard let code = verificationCode else {
             throw AppleAPIError.requiresTwoFactorAuthentication
@@ -444,6 +484,7 @@ public final class Authentication {
     public static func requestSMSTwoFactorCode(
         dsid: String,
         idmsToken: String,
+        verifyOnly: Bool = false,
         anisetteData: AnisetteData,
         verificationHandler: @escaping (@escaping (String?) -> Void) async -> Void
     ) async throws {
@@ -471,7 +512,7 @@ public final class Authentication {
         )
         request.httpBody = bodyData
         
-        let _ = try? await AppleAPI.shared.session.data(for: request)
+        let _ = try await AppleAPI.shared.session.data(for: request)
         
         let verificationCode = try await withCheckedThrowingContinuation { continuation in
             Task {

@@ -61,13 +61,9 @@ public final class Application: NSObject, Sendable {
     }
     
     public var appExtensions: Set<Application> {
-        guard let plugInsURL = bundle.builtInPlugInsURL else {
-            return []
-        }
-        
         return Set(
             FileManager.default
-                .enumerateContents(at: plugInsURL, options: [.skipsSubdirectoryDescendants])
+                .enumerateContents(at: bundle.bundleURL, options: [.skipsSubdirectoryDescendants])
                 .compactMap { url -> Application? in
                     guard url.pathExtension.lowercased() == "appex",
                           let appExtension = Application(fileURL: url) else {
